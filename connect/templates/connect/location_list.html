@@ -41,9 +41,8 @@ is POST with {% csrf_token %} (it creates a row).
   <section class="card gap-top" id="suggest" aria-labelledby="suggest-title">
     <h2 class="card-title" id="suggest-title">Suggest a venue</h2>
     <p class="form-note">
-      Know a public place that would suit a meetup? Suggestions are sent with
-      POST, because they create a record, and are listed only after staff
-      approve them.
+      Know a public place that would suit a meetup? Suggest it here. Staff
+      review every suggestion, and approved venues appear in the list above.
       {% if pending_count %}
         {{ pending_count }} suggestion{{ pending_count|pluralize }}
         {{ pending_count|pluralize:"is,are" }} waiting for review.

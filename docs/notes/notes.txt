@@ -43,6 +43,14 @@ Verified on main after the merge:
     commit shows no check of its own. By design, code reaches main only
     through a PR whose head has passed.
 
+Changed after the merge:
+  - The notes under the search forms, the "Suggest a venue" form and the
+    Insights charts read like developer documentation ("Sent with GET",
+    ORM calls in the captions). They now speak to students in plain words.
+    The GET/POST reasoning stays where it belongs, in README section 2 and
+    in section 2 of this file. Screenshots 02, 06, 10, 11, 13 and 14
+    retaken to match.
+
 Next:
   - Submit the repository URL on Canvas (P1-A3 is due Mon 2026-09-28,
     23:59).
