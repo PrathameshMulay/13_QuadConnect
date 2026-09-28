@@ -71,8 +71,9 @@ exist.)
 
 ## P1-A3 features
 
-Everything below was added in P1-A3. Each section of the assignment maps to
-one area of the code, and each has screenshots in
+Everything below was added in P1-A3 and merged into `main` on 2026-09-28
+(PR #6). Each section of the assignment maps to one area of the code, and each
+has screenshots in
 [`docs/screenshots/p1-a3/`](docs/screenshots/p1-a3/) and tests in
 [`connect/tests.py`](connect/tests.py).
 
@@ -208,7 +209,8 @@ python manage.py check --deploy
 
 **Cache busting.** In production, `collectstatic` writes each static file a
 second time under a name that includes a hash of its contents
-(`quadconnect.css` → `quadconnect.9d7082daf6a5.css`) and records the mapping in
+(`quadconnect.css` → `quadconnect.<hash>.css`, for example
+`quadconnect.9d7082daf6a5.css` in screenshots 08 and 09) and records the mapping in
 a manifest; `{% static %}` looks names up there. WhiteNoise serves hashed files
 with `Cache-Control: max-age=315360000, public, immutable`, so browsers cache
 them for good, and any edit produces a new name, so no browser can keep a stale
@@ -223,9 +225,10 @@ secure cookies — with that flag, `check --deploy` reports zero issues.
 
 ## Continuous integration
 
-Every push to `feature/p1-a3` runs one GitHub Actions check, **Deploy / test
-(push)**, defined in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
-Its single job runs, in order:
+Every push to `feature/p1-a3`, the branch P1-A3 was built on, runs one GitHub
+Actions check, **Deploy / test (push)**, defined in
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Its single job
+runs, in order:
 
 1. `ruff check .` (rules in [`ruff.toml`](ruff.toml))
 2. `manage.py check`, and `makemigrations --check` (no model change without a migration)
@@ -236,8 +239,13 @@ Its single job runs, in order:
    Content-Type of 20 URLs, plus the hashed stylesheet's `immutable` cache header
 
 The workflow generates a throwaway `SECRET_KEY` for each run, so no repository
-secret is needed. To run it on `main` after merging, change the branch in its
-`on: push: branches:` line.
+secret is needed.
+
+`main` receives code only by merging that branch through a pull request, after
+the branch head has passed the check. P1-A3 reached `main` this way in PR #6
+(2026-09-28), and the merged tree is identical to the commit that passed. The
+workflow does not run on `main` itself, so `main`'s merge commits show no check
+of their own; to run it there too, add `main` to its `on: push: branches:` line.
 
 ---
 

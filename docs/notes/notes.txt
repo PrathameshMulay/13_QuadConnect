@@ -22,10 +22,36 @@ Sections:
 ================================================================================
 
 --------------------------------------------------------------------------------
+WEEK 6  (w/c 2026-09-28)  -  P1-A3 merged into main  [PR #6]
+--------------------------------------------------------------------------------
+Merged:
+  - PR #6, feature/p1-a3 -> main, merged 2026-09-28 by Kritika Agrawal
+    (agrawal-kritika). Merge commit 0c69793.
+  - The PR's head, cb85d4c, had passed the one CI check (Deploy / test).
+    main's tree after the merge is byte-identical to it (same tree hash),
+    so the merge itself changed nothing.
+
+Verified on main after the merge:
+  - The whole CI job, run locally on a clean checkout of origin/main (no
+    .env, fresh database): ruff clean, check 0 issues, no missing
+    migrations, seed loaded, verify_constraints 11/11, 45 tests OK,
+    check --deploy 0 issues, collectstatic 131 files, smoke test of the
+    production build passed (hashed stylesheet served immutable).
+  - GitHub: main is the default branch and the repository is public, so
+    the submitted repository URL opens on the P1-A3 code.
+  - The workflow runs only on pushes to feature/p1-a3, so main's merge
+    commit shows no check of its own. By design, code reaches main only
+    through a PR whose head has passed.
+
+Next:
+  - Submit the repository URL on Canvas (P1-A3 is due Mon 2026-09-28,
+    23:59).
+
+--------------------------------------------------------------------------------
 WEEK 5  (w/c 2026-09-21)  -  P1-A3 on feature/p1-a3  [Manojkumar]
 --------------------------------------------------------------------------------
-Branch feature/p1-a3, cut from main at df2c1d1. NOT merged yet: main stays
-exactly as submitted for P1-A2 until that grade is back.
+Built on branch feature/p1-a3, cut from main at df2c1d1, and merged into main
+on 2026-09-28 through PR #6 (see WEEK 6 above).
 
 Done, by assignment section:
   S1  get_absolute_url() on StudentProfile, Match and CampusLocation. New
@@ -521,7 +547,7 @@ SUPPORTING (not graded)
              Admin, and the entry point a grader lands on.
 
 --------------------------------------------------------------------------------
-ADDED IN P1-A3  (all by Manojkumar, on feature/p1-a3)
+ADDED IN P1-A3  (all by Manojkumar; built on feature/p1-a3, on main via PR #6)
 --------------------------------------------------------------------------------
   MatchDetailView            Generic CBV (DetailView)   /matches/<pk>/
       One match: time, venue, activity, participants with fit and reason.
@@ -643,9 +669,9 @@ Team-level observation
 - (P1-A2 rule, for integration) DO NOT edit base.html. All four routes are
   already named and reversed there. If you think you need to change it,
   message the group instead.
-  P1-A3 changed it once, on feature/p1-a3: base.html now loads the static
-  files and has 8 nav links. Adding a page? Add its nav link there, with the
-  same aria-current pattern as the others.
+  P1-A3 changed it once (built on feature/p1-a3, now on main): base.html
+  now loads the static files and has 8 nav links. Adding a page? Add its nav
+  link there, with the same aria-current pattern as the others.
 - Styling lives in static/css/quadconnect.css. No style="" attributes in
   templates, and measure any new colour against WCAG AA before using it.
 - Run python manage.py test connect before you push.
@@ -681,8 +707,9 @@ Team-level observation
       05_list_normal.png         a populated list
       06_list_empty.png          the same list with a filter that matches nothing
 - Late policy is strict: -10%/24h, zero after 48h.
-- P1-A3 (Manojkumar only): built on feature/p1-a3. Merge it to main only once
-  the P1-A2 grade is back, then submit the public repository link.
+- P1-A3 (Manojkumar only): built on feature/p1-a3 and merged into main on
+  2026-09-28 (PR #6). Due Mon 2026-09-28, 23:59: submit the public
+  repository link, https://github.com/manojkmohan5/13_QuadConnect
   Screenshots are in docs/screenshots/p1-a3/.
   Production needs one extra deploy step now: collectstatic --noinput.
 
