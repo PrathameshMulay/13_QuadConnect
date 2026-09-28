@@ -25,8 +25,8 @@ Every loop has an {% empty %} branch.
     <section class="card" aria-labelledby="search-title">
       <h2 class="card-title" id="search-title">Search the roster</h2>
       <p class="form-note">
-        Sent with GET. The filters become part of the URL, so a search can be
-        bookmarked or shared, and reloading it shows the same results.
+        Your search is kept in the page address, so you can bookmark it or
+        share the link.
       </p>
       <form class="form" method="get" action="{% url 'connect:student-search' %}"
             role="search" aria-label="Search the roster">
@@ -45,9 +45,8 @@ Every loop has an {% empty %} branch.
     <section class="card" aria-labelledby="lookup-title">
       <h2 class="card-title" id="lookup-title">Look up a NetID</h2>
       <p class="form-note">
-        Sent with POST. The NetID travels in the request body, never in the
-        URL, so it stays out of browser history, server logs and the Referer
-        header.
+        Find one particular student. The NetID you enter stays out of the
+        page address, so it is not saved in your browser history.
       </p>
       <form class="form" method="post" action="{% url 'connect:student-search' %}">
         {% csrf_token %}
