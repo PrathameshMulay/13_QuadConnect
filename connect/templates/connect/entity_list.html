@@ -20,6 +20,8 @@ items          list  of dicts, each with:
 empty_title    str   headline shown when items is empty
 empty_message  str   explanatory line shown when items is empty
 filter_html    bool  set truthy by a view that renders its own filter block
+
+Blocks for child templates: filters (above the list), after_list (below it).
 {% endcomment %}
 
 {% block title %}{{ page_title|default:"QuadConnect" }}{% endblock %}
@@ -33,8 +35,9 @@ filter_html    bool  set truthy by a view that renders its own filter block
 
   {% block filters %}{% endblock %}
 
+  <ul class="list">
   {% for item in items %}
-    <div class="card" style="margin-bottom:10px;">
+    <li class="card{% if item.url %} linked{% endif %}">
       <div class="row">
         <div>
           <div class="title">
@@ -52,12 +55,15 @@ filter_html    bool  set truthy by a view that renders its own filter block
         </div>
         {% if item.badge %}<span class="badge">{{ item.badge }}</span>{% endif %}
       </div>
-    </div>
+    </li>
   {% empty %}
-    <div class="empty">
+    <li class="empty">
       <div class="big">{{ empty_title|default:"Nothing to show yet" }}</div>
       <p>{{ empty_message|default:"There are no records matching this view." }}</p>
-    </div>
+    </li>
   {% endfor %}
+  </ul>
+
+  {% block after_list %}{% endblock %}
 
 {% endblock %}

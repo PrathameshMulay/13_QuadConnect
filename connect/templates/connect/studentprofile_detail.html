@@ -10,13 +10,15 @@ deliberately absent.
 {% endcomment %}
 
 {% block title %}{{ student.full_name }} - QuadConnect{% endblock %}
-{% block heading %}{{ student.full_name }}{% endblock %}
-
-{% block subtitle %}
+{% block page_header %}
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="{% url 'connect:student-list' %}">Students</a> /
+    <span aria-current="page">{{ student.full_name }}</span>
+  </nav>
+  <h1 class="page">{{ student.full_name }}</h1>
   <p class="sub">
     {{ student.net_id }} &middot; {{ student.college }}
     {% if student.department %} &middot; {{ student.department }}{% endif %}
-    &middot; <a href="{% url 'connect:student-list' %}">Back to all students</a>
   </p>
 {% endblock %}
 
@@ -43,8 +45,9 @@ deliberately absent.
   </div>
 
   <h2 class="section">Interests</h2>
+  <ul class="list">
   {% for link in interest_links %}
-    <div class="card" style="margin-bottom:8px;">
+    <li class="card">
       <div class="row">
         <div>
           <div class="title">{{ link.interest.name }}</div>
@@ -54,36 +57,42 @@ deliberately absent.
         </div>
         {% if link.is_primary %}<span class="badge">Starred</span>{% endif %}
       </div>
-    </div>
+    </li>
   {% empty %}
-    <div class="empty">
+    <li class="empty">
       <div class="big">No interests selected</div>
       <p>This student has not completed the interests step of onboarding,
          so they cannot be matched yet.</p>
-    </div>
+    </li>
   {% endfor %}
+  </ul>
 
   <h2 class="section">Weekend availability</h2>
+  <ul class="list">
   {% for slot in slots %}
-    <div class="card" style="margin-bottom:8px;">
+    <li class="card">
       <div class="title">
         {{ slot.get_weekday_display }} &middot; {{ slot.get_time_block_display }}
       </div>
-    </div>
+    </li>
   {% empty %}
-    <div class="empty">
+    <li class="empty">
       <div class="big">No availability given</div>
       <p>Availability is a hard constraint on matching. Without at least one
          slot this student cannot be scheduled.</p>
-    </div>
+    </li>
   {% endfor %}
+  </ul>
 
   <h2 class="section">Match history</h2>
+  <ul class="list">
   {% for p in participations %}
-    <div class="card" style="margin-bottom:8px;">
+    <li class="card linked">
       <div class="row">
         <div>
-          <div class="title">{{ p.match.get_connection_type_display }}</div>
+          <div class="title">
+            <a href="{{ p.match.get_absolute_url }}">{{ p.match.get_connection_type_display }}</a>
+          </div>
           <div class="subtitle">{{ p.match.location.name }}</div>
           <div class="meta">
             <span>{{ p.match.scheduled_for|date:"D j M Y, g:i A" }}</span>
@@ -93,12 +102,13 @@ deliberately absent.
         </div>
         <span class="badge">{{ p.get_response_display }}</span>
       </div>
-    </div>
+    </li>
   {% empty %}
-    <div class="empty">
+    <li class="empty">
       <div class="big">No matches yet</div>
       <p>This student has not been placed in a weekly matching cycle.</p>
-    </div>
+    </li>
   {% endfor %}
+  </ul>
 
 {% endblock %}

@@ -1,7 +1,7 @@
 """
 Views for the connect app.
 
-P1-A2 requires four kinds of view over the same domain. Each is owned by one
+P1-A2 required four kinds of view over the same domain. Each was built by one
 team member and lives in its own clearly-marked section below:
 
     Section A1  HttpResponse FBV   feedback_summary          Dhruv Thaker
@@ -9,28 +9,37 @@ team member and lives in its own clearly-marked section below:
     Section B1  Base CBV (View)    CampusLocationListView    Prathamesh Mulay
     Section B2  Generic CBV        StudentProfileListView    Kritika Agrawal
 
-The four stubs below are placeholders committed on `main` so that
-`base.html` can reverse every nav link from day one and the site is never
-broken mid-integration. Each owner replaces their own stub on their own
-feature branch; nobody needs to touch base.html or another owner's section.
+P1-A3 added, next to the view each extends:
+
+    MatchDetailView            Generic CBV, /matches/<pk>/         (Section 1)
+    CampusLocationDetailView   Generic CBV, /locations/<pk>/       (Section 1)
+    CampusLocationListView     now also handles POST               (Section 5)
+    StudentSearchView          Base CBV, GET + POST, /search/      (Section 2)
+
+The charts (Section 4) live in charts.py and the JSON API (Section 6) in
+api.py.
 """
 
 from datetime import date
 
-from django.db.models import Avg, Count, Q
+from django.contrib import messages
+from django.db.models import Avg, Count, Prefetch, Q
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.template import loader
+from django.urls import reverse
 from django.utils.timezone import localtime
 from django.views import View
 from django.views.generic import DetailView, ListView
 
+from .forms import CampusLocationSuggestionForm, NetIDLookupForm, StudentSearchForm
 from .models import (
     CampusLocation,
     ExperienceFeedback,
     Interest,
     Match,
     MatchParticipant,
+    ProfileInterest,
     StudentProfile,
 )
 
@@ -185,6 +194,7 @@ def _match_rows(matches):
                 f"Code {match.check_in_code}",
             ],
             "badge": match.get_status_display(),
+            "url": match.get_absolute_url(),
         })
     return rows
 
@@ -252,6 +262,28 @@ def match_list(request):
     return render(request, "connect/match_list.html", context)
 
 
+class MatchDetailView(DetailView):
+    """One scheduled experience: when, where, who, and why they matched.
+
+    Reached from any match row via Match.get_absolute_url(). DetailView
+    looks the match up by the <int:pk> in the URL and raises 404 for a pk
+    that does not exist. Template: connect/match_detail.html by convention.
+    """
+
+    model = Match
+    context_object_name = "match"
+    queryset = Match.objects.select_related("location", "suggested_activity")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Meta.ordering puts the best fit first. Feedback is never loaded:
+        # it is private to the student who wrote it.
+        context["participants"] = (
+            self.object.participants.select_related("profile")
+        )
+        return context
+
+
 # ===========================================================================
 # Section B1 - Base Class-Based View (inherits django.views.View)
 # OWNER: Prathamesh Mulay (pmulay2)   URL name: connect:location-list
@@ -260,18 +292,27 @@ def match_list(request):
 
 
 class CampusLocationListView(View):
-    """List approved QuadConnect campus meeting locations."""
+    """List approved QuadConnect campus meeting locations.
+
+    Handles both methods (P1-A3 Section 5):
+
+    GET   reads the ?setting= and ?seats= query parameters: filtering
+          changes nothing, so it belongs in a URL that can be shared.
+    POST  submits the "Suggest a venue" form: it creates a row, so it must
+          never happen on a plain GET (a link, a prefetch, a crawler).
+    """
 
     def _build_items(self, queryset):
         items = []
 
         for location in queryset:
             setting = "Indoor" if location.is_indoor else "Outdoor"
+            plural = "" if location.match_count == 1 else "es"
 
             meta = [
                 setting,
                 f"Seats up to {location.capacity}",
-                f"Hosted {location.match_count} matches",
+                f"Hosted {location.match_count} match{plural}",
             ]
 
             if location.arrival_note:
@@ -283,13 +324,39 @@ class CampusLocationListView(View):
                     "subtitle": location.street_address,
                     "meta": meta,
                     "badge": setting,
-                    "url": None,
+                    "url": location.get_absolute_url(),
                 }
             )
 
         return items
 
     def get(self, request):
+        return self._render(request, CampusLocationSuggestionForm())
+
+    def post(self, request):
+        """Save a venue suggestion, unapproved, then redirect.
+
+        Success redirects (Post/Redirect/Get), so reloading the page cannot
+        submit the same suggestion twice. A failure re-renders the list with
+        each error next to its field.
+
+        The redirect names #main because the form posts to #suggest, and a
+        browser carries that fragment through a redirect that has none of
+        its own: the page would open scrolled past the success message.
+        """
+        form = CampusLocationSuggestionForm(request.POST)
+        if form.is_valid():
+            venue = form.save(commit=False)
+            venue.is_approved = False  # the model default is True
+            venue.save()
+            messages.success(request, (
+                f'Thanks. "{venue.name}" was sent for review and will be '
+                f"listed here once staff approve it."
+            ))
+            return redirect(reverse("connect:location-list") + "#main")
+        return self._render(request, form)
+
+    def _render(self, request, form):
         setting = request.GET.get("setting", "").strip().lower()
         raw_seats = (request.GET.get("seats") or "").strip()
 
@@ -325,6 +392,14 @@ class CampusLocationListView(View):
             queryset = queryset.none()
 
         items = self._build_items(queryset)
+
+        # Unapproved and never hosted a match = a suggestion awaiting review.
+        # (A retired venue always has match history; that is why it was
+        # retired instead of deleted.) Everyone sees the count; only staff
+        # see the names, because unreviewed text is not published.
+        pending = (CampusLocation.objects
+                   .filter(is_approved=False, matches__isnull=True)
+                   .order_by("name"))
 
         # Empty states differ by cause, so the reader learns what to change.
         if bad_seats:
@@ -369,9 +444,40 @@ class CampusLocationListView(View):
             # For the filter controls in location_list.html.
             "selected_setting": setting,
             "selected_seats": raw_seats,
+            # For the suggestion form in location_list.html.
+            "form": form,
+            "pending": pending if request.user.is_staff else None,
+            "pending_count": pending.count(),
         }
 
         return render(request, "connect/location_list.html", context)
+
+
+class CampusLocationDetailView(DetailView):
+    """One campus venue and every match scheduled there.
+
+    An unapproved venue (retired, or suggested and not yet reviewed) is
+    visible to staff only. Everyone else gets the same 404 as a pk that
+    does not exist, so the page does not reveal that the venue exists.
+    """
+
+    model = CampusLocation
+    context_object_name = "location"
+
+    def get_queryset(self):
+        queryset = CampusLocation.objects.all()
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(is_approved=True)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["matches"] = (
+            self.object.matches.select_related("suggested_activity")
+            .annotate(headcount=Count("participants"))
+            .order_by("-scheduled_for")
+        )
+        return context
 
 
 # ===========================================================================
@@ -456,3 +562,136 @@ class StudentProfileDetailView(DetailView):
             .order_by("-match__scheduled_for")
         )
         return context
+
+
+# ===========================================================================
+# P1-A3 Section 2 - ORM search: one page, a GET form and a POST form
+# URL name: connect:student-search
+# ===========================================================================
+
+
+def _search_students(data):
+    """Return the students matching a valid StudentSearchForm's data.
+
+    Every filter is optional; an empty form matches the whole roster.
+    """
+    matches = StudentProfile.objects.all()
+    if data.get("q"):
+        # One text box searches two places. The second lookup spans two
+        # relationships: StudentProfile -> ProfileInterest -> Interest.
+        matches = matches.filter(
+            Q(full_name__icontains=data["q"])
+            | Q(interest_links__interest__name__icontains=data["q"])
+        )
+    if data.get("college"):
+        matches = matches.filter(college__exact=data["college"])
+    if data.get("connection"):
+        matches = matches.filter(preferred_connection__exact=data["connection"])
+    if data.get("venue"):
+        # Three hops: StudentProfile -> MatchParticipant -> Match ->
+        # CampusLocation. "Students who have had a match at this venue."
+        matches = matches.filter(
+            match_participations__match__location__name__exact=data["venue"]
+        )
+    # Spanning a to-many relation yields one row per matching related row,
+    # so a student with two matching interests would appear twice.
+    return matches.distinct()
+
+
+class StudentSearchView(View):
+    """Search the verified roster two ways, on one page.
+
+    GET reads request.GET through StudentSearchForm: the filters belong in
+    the URL, so a search can be bookmarked or shared and a reload shows the
+    same results.
+
+    POST reads request.POST through NetIDLookupForm: the NetID belongs in
+    the request body, so it stays out of history, logs and Referer headers.
+    The page is rendered straight from the POST instead of redirecting,
+    because a redirect would have to put the NetID back into a URL.
+
+    Both methods render the same template, with the results and their
+    aggregate summary for the current GET filters.
+    """
+
+    template_name = "connect/student_search.html"
+
+    def get(self, request):
+        # Unbound on a bare /search/, so the page opens without errors.
+        search_form = StudentSearchForm(request.GET or None)
+        return self._render(request, search_form, NetIDLookupForm())
+
+    def post(self, request):
+        lookup_form = NetIDLookupForm(request.POST)
+        found = None
+        if lookup_form.is_valid():
+            net_id = lookup_form.cleaned_data["net_id"]
+            found = StudentProfile.objects.filter(net_id__iexact=net_id).first()
+            if found is None:
+                lookup_form.add_error("net_id", (
+                    f'No verified student has the NetID "{net_id}". Check '
+                    f"the spelling, or search the roster by name instead."
+                ))
+        return self._render(request, StudentSearchForm(), lookup_form, found)
+
+    def _render(self, request, search_form, lookup_form, found=None):
+        if not search_form.is_bound:
+            matching = StudentProfile.objects.all()
+        elif search_form.is_valid():
+            matching = _search_students(search_form.cleaned_data)
+        else:
+            matching = StudentProfile.objects.none()
+
+        # Re-select through a pk subquery so the annotation and the
+        # aggregates below are not skewed by the search's joins: counting
+        # interest_links on the filtered query would count only the
+        # interests that matched the search, not all of them.
+        results = StudentProfile.objects.filter(pk__in=matching.values("pk"))
+
+        # ponytail: unpaginated; the roster at /students/ paginates, add it
+        # here too once the roster outgrows a single page.
+        students = (
+            results.annotate(interest_count=Count("interest_links"))
+            .prefetch_related(Prefetch(
+                "interest_links",
+                queryset=ProfileInterest.objects.select_related("interest")
+                .order_by("-is_primary", "interest__name"),
+            ))
+            .order_by("full_name", "net_id")
+        )
+
+        # Total: aggregate() collapses the result set into one row.
+        summary = results.aggregate(
+            total=Count("id"),
+            avg_energy=Avg("social_energy"),
+        )
+        # Grouped: values() + annotate() is GROUP BY college.
+        by_college = (
+            results.values("college")
+            .annotate(students=Count("id"))
+            .order_by("-students", "college")
+        )
+        # Grouped across a relation: interests ranked by how many of the
+        # matching students picked them. filter() before annotate() makes
+        # the count consider only those students' selections.
+        top_interests = (
+            Interest.objects.filter(profile_links__profile__in=results)
+            .annotate(students=Count("profile_links"))
+            .order_by("-students", "name")[:6]
+        )
+
+        # cleaned_data exists only once a bound form has been validated.
+        q = getattr(search_form, "cleaned_data", {}).get("q", "")
+        context = {
+            "search_form": search_form,
+            "lookup_form": lookup_form,
+            "found": found,
+            "searching": search_form.is_bound,
+            "q": q.lower(),
+            "students": students,
+            "summary": summary,
+            "by_college": by_college,
+            "top_interests": top_interests,
+            "roster_total": StudentProfile.objects.count(),
+        }
+        return render(request, self.template_name, context)
