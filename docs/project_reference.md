@@ -25,18 +25,19 @@ what we chose not to build, and where the shortcuts are.
 | | |
 |---|---|
 | **Repo** | `13_QuadConnect` |
-| **Assignment in flight** | **P1-A3** — URLs, ORM, static files, charts, forms, API (60 pts) — built by Manojkumar alone on `feature/p1-a3`, verified, **not merged** |
-| **Last completed** | P1-A2 — Fullstack Development + GitHub Secrets (30 pts) — submitted, awaiting grade |
-| **`main` status** | Exactly as submitted for P1-A2 (`df2c1d1`). Do not push to it until the P1-A2 grade is back. |
-| **What remains** | Review `feature/p1-a3`, merge it to `main` once P1-A2 is graded, submit the repo URL. |
+| **Assignment in flight** | **P1-A3** — URLs, ORM, static files, charts, forms, API (60 pts) — built by Manojkumar alone on `feature/p1-a3`, **merged into `main` on 2026-09-28 (PR #6)** |
+| **Last completed** | P1-A2 — Fullstack Development + GitHub Secrets (30 pts) — submitted |
+| **`main` status** | Has P1-A2 and P1-A3. PR #6's merge commit `0c69793` is byte-identical to the CI-verified `cb85d4c`. |
+| **What remains** | Submit the repository URL on Canvas for P1-A3 (due Mon 2026-09-28, 23:59). |
 
-`main` ships P1-A2: split settings, `.env` handling, `base.html`, the shared
-list template, a home dashboard and the four graded views. `feature/p1-a3`
-adds everything in §9's P1-A3 entry: detail pages, search, static files with
-cache busting, Matplotlib charts, a POST form on a CBV, a JSON API, and a
-45-test suite. It also has CI: every push to `feature/p1-a3` runs one check,
+`main` ships P1-A2 (split settings, `.env` handling, `base.html`, the shared
+list template, a home dashboard and the four graded views) and, since PR #6,
+everything in §9's P1-A3 entry: detail pages, search, static files with cache
+busting, Matplotlib charts, a POST form on a CBV, a JSON API, and a 45-test
+suite. It also has CI: every push to `feature/p1-a3` runs one check,
 **Deploy / test (push)** (`.github/workflows/deploy.yml`), with every CI step
-inside that one job. It runs on no other branch.
+inside that one job. It runs on no other branch: code reaches `main` only
+through a PR whose head has passed it.
 
 ### Status board — UPDATE YOUR ROW WHEN YOU FINISH
 
@@ -46,7 +47,7 @@ inside that one job. It runs on no other branch.
 | Manojkumar Mohankumar | `feature/match-views` | FBV `render()` | `/matches/` | ✅ DONE — `match_list` with `?week=` filter, renders the shared list template |
 | Prathamesh Mulay | `feature/location-views` | Base CBV | `/locations/` | ✅ DONE — `CampusLocationListView` base CBV with setting + seats filters, reuses the shared list template |
 | Dhruv Thaker | `feature/feedback-views` | FBV `HttpResponse` | `/feedback/summary/` | ✅ DONE — aggregate feedback summary with rating distribution, enjoyment metrics, and connection preferences |
-| Manojkumar Mohankumar (P1-A3, solo) | `feature/p1-a3` | all six A3 sections | `/search/`, `/matches/<pk>/`, `/locations/<pk>/`, `/insights/`, `/api/` | ✅ DONE, not merged — see §9 |
+| Manojkumar Mohankumar (P1-A3, solo) | `feature/p1-a3` | all six A3 sections | `/search/`, `/matches/<pk>/`, `/locations/<pk>/`, `/insights/`, `/api/` | ✅ DONE — merged to `main` in PR #6 (2026-09-28); see §9 |
 
 **Whoever completes a branch:** updating this file is
 **Step 7 of that developer's build task** and a box on their Done
@@ -559,13 +560,31 @@ visible when the branches came together — conflicts hit, behaviour that broke
 on integration, decisions reversed. That merge entry is the part that is
 easiest to skip and most valuable later.
 
+### `main` — P1-A3 merged · 2026-09-28 · PR #6
+**Merged:** `feature/p1-a3` into `main` through PR #6, merged by Kritika
+Agrawal (`agrawal-kritika`). Merge commit `0c69793`.
+
+**What surfaced at integration:** nothing. The PR's head `cb85d4c` had passed
+the Deploy / test check, `main` had not moved since `df2c1d1`, and the merged
+tree is byte-identical to `cb85d4c` (same tree hash).
+
+**Verified on `main`:** the full CI job, run locally on a clean checkout of
+`origin/main` (no `.env`, fresh database): ruff, `check`, no missing
+migrations, seed, `verify_constraints` 11/11, 45 tests, `check --deploy`,
+`collectstatic`, and the production smoke test all passed. `main` is the
+default branch and the repository is public.
+
+**Note:** the workflow runs only on pushes to `feature/p1-a3`, so `main`'s
+merge commit shows no check of its own. Add `main` to its branch list to
+change that.
+
 ### DONE `feature/p1-a3` - Manojkumar Mohankumar - 2026-09-24
 **Shipped:** all six P1-A3 sections, solo, on one branch cut from `main` at
 `df2c1d1`: detail pages linked through `get_absolute_url()`, a GET + POST
 search with aggregates, the site CSS moved to `static/` with production cache
 busting, two Matplotlib charts served as PNG endpoints, a POST "suggest a
-venue" form on the locations CBV, and a read-only JSON API. **Not merged** —
-`main` stays as submitted for P1-A2 until that grade is back.
+venue" form on the locations CBV, and a read-only JSON API. Merged into
+`main` on 2026-09-28 through PR #6 (see the merge entry above).
 
 **Files added:** `static/css/quadconnect.css`, `static/img/logo.svg`,
 `static/fonts/` (Inter + OFL), `connect/forms.py`, `connect/charts.py`,
@@ -884,13 +903,14 @@ Deliverables live outside this repo in the workspace `SUBMIT/` folder.
 ### P1-A2 — Fullstack Development + GitHub Secrets (30 pts) — submitted
 Section 1 structure/security/GitHub done on `main`; the four feature
 branches merged one at a time (see §9). Submission was one item: the public
-GitHub repository URL. Awaiting the grade.
+GitHub repository URL.
 
-### P1-A3 — URLs, ORM, static files, charts, forms, API (60 pts) — in flight
+### P1-A3 — URLs, ORM, static files, charts, forms, API (60 pts) — merged, to submit
 Built by Manojkumar alone on `feature/p1-a3`; all six sections done and
-verified (§9). Merge to `main` only after the P1-A2 grade is back, then
-submit the public repository URL. The notes.txt answers the assignment asks
-for are in its section 2; screenshots in `docs/screenshots/p1-a3/`.
+verified (§9). Merged into `main` on 2026-09-28 through PR #6. Submission is
+one item, the public repository URL, due Mon 2026-09-28 at 23:59. The
+notes.txt answers the assignment asks for are in its section 2; screenshots
+in `docs/screenshots/p1-a3/`.
 
 ### Next
 The matching algorithm remains the biggest open design question:
