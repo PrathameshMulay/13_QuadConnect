@@ -1,10 +1,11 @@
 # CI for QuadConnect.
 #
-# One workflow with one job, triggered only by a push to feature/p1-a3, so
-# every commit gets exactly one check: "Deploy / test (push)". Every CI step
-# lives inside that job: lint, Django checks, migrations, seed data,
-# constraints, the test suite, the production deploy checks, the production
-# static build, and a smoke test of the production build.
+# One workflow with one job, triggered only by a push to feature/p1-a4 (the
+# branch P1-A4 is built on), so every commit gets exactly one check:
+# "Deploy / test (push)". Every CI step lives inside that job: lint, Django
+# checks, migrations, seed data, constraints, the test suite, the production
+# deploy checks, the production static build, and a smoke test of the
+# production build.
 #
 # No matrix and no pull_request trigger on purpose: either would add checks.
 # To run this on main after merging, change the branch below.
@@ -13,7 +14,7 @@ name: Deploy
 
 on:
   push:
-    branches: [feature/p1-a3]
+    branches: [feature/p1-a4]
 
 permissions:
   contents: read
@@ -31,10 +32,11 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v7
 
-      - name: Set up Python 3.11
+      # 3.12: the version the course's deployment target runs.
+      - name: Set up Python 3.12
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
