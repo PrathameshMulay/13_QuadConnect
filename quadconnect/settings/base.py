@@ -135,7 +135,7 @@ USE_TZ = True
 
 
 # --- Static files ---------------------------------------------------------
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 # Site-wide assets live in one project-level static/ directory, because the
 # site-wide base template is their only consumer:

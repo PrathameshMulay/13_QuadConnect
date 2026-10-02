@@ -8,13 +8,13 @@
 # --- Django ----------------------------------------------------------------
 db.sqlite3
 db.sqlite3-journal
-/staticfiles/
+staticfiles/
 /media/
 *.log
 
 # --- Python ----------------------------------------------------------------
 __pycache__/
-*.py[cod]
+*.pyc
 *$py.class
 *.so
 .Python
