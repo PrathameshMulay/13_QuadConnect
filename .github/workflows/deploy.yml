@@ -2,10 +2,10 @@
 #
 # One workflow with one job, triggered only by a push to feature/p1-a4 (the
 # branch P1-A4 is built on), so every commit gets exactly one check:
-# "Deploy / test (push)". Every CI step lives inside that job: lint, Django
-# checks, migrations, seed data, constraints, the test suite, the production
-# deploy checks, the production static build, and a smoke test of the
-# production build.
+# "Deploy / test (push)". Every CI step lives inside that job: install
+# size, lint, Django checks, migrations, the committed database,
+# constraints, the test suite, the production deploy checks, the
+# production static build, and a smoke test of the production build.
 #
 # No matrix and no pull_request trigger on purpose: either would add checks.
 # To run this on main after merging, change the branch below.
@@ -40,7 +40,19 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt ruff==0.16.4
+        run: pip install -r requirements.txt
+
+      - name: Install size fits a 512 MB host
+        # The course's host allows 512 MB for the virtualenv and the project
+        # together, so the installed packages must leave room for the rest.
+        run: |
+          site="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+          size="$(du -sm "$site" | cut -f1)"
+          echo "Installed packages: ${size} MB"
+          if [ "$size" -gt 400 ]; then
+            echo "::error::Installed packages use ${size} MB; keep them under 400 MB."
+            exit 1
+          fi
 
       - name: Generate a throwaway secret key
         # Nothing in CI outlives the run, so a fresh random key per run is
@@ -51,7 +63,9 @@ jobs:
           echo "DJANGO_SECRET_KEY=$key" >> "$GITHUB_ENV"
 
       - name: Lint (ruff, rules in ruff.toml)
-        run: ruff check --output-format=github .
+        run: |
+          pip install ruff==0.16.4
+          ruff check --output-format=github .
 
       - name: Django system checks
         run: python manage.py check --fail-level WARNING
@@ -59,10 +73,25 @@ jobs:
       - name: No model change without a migration
         run: python manage.py makemigrations --check --dry-run
 
-      - name: Migrate a fresh database and load the seed data
+      - name: Committed database is migrated and holds seed data only
+        # db.sqlite3 is committed and deployed as-is. A locally used copy
+        # would publish login sessions or leftover test venues.
         run: |
-          python manage.py migrate --noinput
-          python manage.py seed_demo_data
+          python manage.py migrate --check
+          python manage.py shell -c "
+          from django.contrib.admin.models import LogEntry
+          from django.contrib.auth.models import User
+          from django.contrib.sessions.models import Session
+          from connect.models import CampusLocation
+          problems = []
+          if Session.objects.exists(): problems.append('login sessions')
+          if LogEntry.objects.exists(): problems.append('admin history')
+          if CampusLocation.objects.filter(is_approved=False).exists(): problems.append('unapproved venues')
+          tester = User.objects.filter(username='tester', is_superuser=True).first()
+          if not (tester and tester.check_password('uiuc12345')): problems.append('no working tester account')
+          if problems: raise SystemExit('Committed db.sqlite3 has: ' + ', '.join(problems) + '. Rebuild it.')
+          print('Committed db.sqlite3: migrated, seed data only, tester account works.')
+          "
 
       - name: Constraints and delete rules (verify_constraints)
         run: python manage.py verify_constraints
