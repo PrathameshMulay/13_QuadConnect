@@ -7,12 +7,15 @@ These run on the real seed data (seed_demo_data), because the charts,
 reports and exports are about the dataset the deployed site serves.
 """
 
+from datetime import date, timedelta
 from io import StringIO
+from itertools import pairwise
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db.models import Count
 from django.test import TestCase
+from django.urls import reverse
 
 from .management.commands.seed_demo_data import HISTORY, STAFF_PASSWORD
 from .models import (
@@ -20,6 +23,7 @@ from .models import (
     Match,
     MatchParticipant,
     MatchStatus,
+    ProfileInterest,
     StudentProfile,
 )
 
@@ -89,3 +93,46 @@ class SeedDataTests(SeededTestCase):
 
     def test_verify_constraints_passes_on_the_seed(self):
         call_command("verify_constraints", stdout=StringIO())  # raises on failure
+
+
+# --- Part 1.1: chart-ready internal API ------------------------------------------
+
+
+class SummaryApiTests(SeededTestCase):
+
+    def test_summary_is_a_bare_list_of_category_count_rows(self):
+        response = self.client.get(reverse("connect:api-summary"))
+        self.assertEqual(response["Content-Type"], "application/json")
+        rows = response.json()
+        self.assertIsInstance(rows, list)
+        self.assertEqual(set(rows[0]), {"category", "count", "type"})
+        # Most picked first, ties by name; nobody picked an activity.
+        self.assertEqual([(r["category"], r["count"]) for r in rows[:3]],
+                         [("Food", 4), ("Movies", 4), ("Fitness", 3)])
+        self.assertEqual(sum(r["count"] for r in rows), ProfileInterest.objects.count())
+        self.assertNotIn("Meeting activity", {r["type"] for r in rows})
+
+    def test_matches_per_week_is_contiguous_weekly_records(self):
+        records = self.client.get(reverse("connect:api-summary-matches-per-week")).json()["records"]
+        dates = [date.fromisoformat(r["date"]) for r in records]
+        self.assertEqual(dates[0], date(2026, 7, 13))
+        self.assertEqual(dates[-1], date(2026, 9, 7))
+        self.assertTrue(all(b - a == timedelta(weeks=1) for a, b in pairwise(dates)))
+        self.assertEqual([r["count"] for r in records], [1, 1, 2, 2, 2, 3, 3, 3, 2])
+        self.assertEqual(sum(r["count"] for r in records), Match.objects.count())
+        self.assertEqual(sum(r["participants"] for r in records), MatchParticipant.objects.count())
+
+    def test_a_week_without_matches_shows_as_zero(self):
+        Match.objects.filter(week_start=date(2026, 8, 10)).delete()
+        records = self.client.get(reverse("connect:api-summary-matches-per-week")).json()["records"]
+        self.assertIn({"date": "2026-08-10", "count": 0, "participants": 0}, records)
+
+    def test_public_json_endpoints_allow_any_origin(self):
+        for name in ["api-summary", "api-summary-matches-per-week", "api-locations",
+                     "api-matches", "api-locations-text"]:
+            response = self.client.get(reverse("connect:" + name))
+            self.assertEqual(response["Access-Control-Allow-Origin"], "*", name)
+
+    def test_summary_endpoints_are_get_only(self):
+        for name in ["api-summary", "api-summary-matches-per-week"]:
+            self.assertEqual(self.client.post(reverse("connect:" + name)).status_code, 405)

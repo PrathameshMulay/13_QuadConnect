@@ -66,4 +66,8 @@ urlpatterns = [
     path("api/locations/", api.LocationListAPI.as_view(), name="api-locations"),
     path("api/matches/", api.match_list_api, name="api-matches"),
     path("api/locations.txt", api.location_list_text, name="api-locations-text"),
+    # Chart-ready data for the Vega-Lite charts (P1-A4 Part 1).
+    path("api/summary/", api.summary_api, name="api-summary"),
+    path("api/summary/matches-per-week/", api.matches_per_week_api,
+         name="api-summary-matches-per-week"),
 ]
