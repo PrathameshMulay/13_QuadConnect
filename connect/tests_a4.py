@@ -26,6 +26,7 @@ from .models import (
     ProfileInterest,
     StudentProfile,
 )
+from .vega_charts import load_spec
 
 
 def seed():
@@ -136,3 +137,43 @@ class SummaryApiTests(SeededTestCase):
     def test_summary_endpoints_are_get_only(self):
         for name in ["api-summary", "api-summary-matches-per-week"]:
             self.assertEqual(self.client.post(reverse("connect:" + name)).status_code, 405)
+
+
+# --- Part 1.2: Vega-Lite charts ---------------------------------------------------
+
+
+class VegaLiteTests(SeededTestCase):
+
+    def test_specs_load_their_data_from_the_summary_api(self):
+        # The assignment: data.url pointing at our API, never inline values.
+        for name, api in [("chart1", "api-summary"), ("chart2", "api-summary-matches-per-week")]:
+            spec = load_spec(name)
+            self.assertEqual(spec["$schema"], "https://vega.github.io/schema/vega-lite/v6.json")
+            self.assertEqual(spec["data"]["url"], reverse("connect:" + api), name)
+            self.assertNotIn("values", spec["data"], name)
+        self.assertEqual(load_spec("chart1")["layer"][0]["mark"]["type"], "bar")
+        self.assertEqual(load_spec("chart2")["mark"]["type"], "line")
+
+    def test_served_spec_has_an_absolute_data_url(self):
+        # Absolute, so the spec also loads its data inside the Vega-Lite editor.
+        response = self.client.get(reverse("connect:vega-spec", args=["chart2"]))
+        self.assertEqual(response["Access-Control-Allow-Origin"], "*")
+        self.assertEqual(response.json()["data"]["url"],
+                         "http://testserver" + reverse("connect:api-summary-matches-per-week"))
+
+    def test_image_endpoints_return_png_and_jpeg(self):
+        for path, content_type, magic in [("/vega-lite/chart1.png", "image/png", b"\x89PNG"),
+                                          ("/vega-lite/chart2.jpg", "image/jpeg", b"\xff\xd8\xff")]:
+            response = self.client.get(path)
+            self.assertEqual(response["Content-Type"], content_type, path)
+            self.assertTrue(response.content.startswith(magic), path)
+
+    def test_images_still_render_with_no_data(self):
+        Match.objects.all().delete()
+        ProfileInterest.objects.all().delete()
+        for path in ["/vega-lite/chart1.png", "/vega-lite/chart2.jpg"]:
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+
+    def test_unknown_chart_or_format_is_404(self):
+        for path in ["/vega-lite/chart9.png", "/vega-lite/chart1.gif", "/vega-lite/chart9.vl.json"]:
+            self.assertEqual(self.client.get(path).status_code, 404, path)
