@@ -9,6 +9,7 @@ reports and exports are about the dataset the deployed site serves.
 
 import csv
 import json
+import re
 from datetime import date, timedelta
 from io import StringIO
 from itertools import pairwise
@@ -16,6 +17,7 @@ from unittest.mock import patch
 
 import requests
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db.models import Count
 from django.test import TestCase
@@ -27,6 +29,8 @@ from .management.commands.seed_demo_data import HISTORY, STAFF_PASSWORD
 from .models import (
     CampusLocation,
     ExperienceFeedback,
+    Interest,
+    InterestCategory,
     Match,
     MatchParticipant,
     MatchStatus,
@@ -103,6 +107,16 @@ class SeedDataTests(SeededTestCase):
     def test_verify_constraints_passes_on_the_seed(self):
         call_command("verify_constraints", stdout=StringIO())  # raises on failure
 
+    def test_match_lists_put_the_newest_cycle_first(self):
+        # With the history seeded, id order is no longer date order, and
+        # annotate() drops Meta.ordering, so each list must order by date.
+        newest = [m.get_absolute_url()
+                  for m in Match.objects.order_by("-week_start", "-scheduled_for", "-pk")]
+        for name, count in [("match-list", len(newest)), ("home", 5)]:
+            page = self.client.get(reverse("connect:" + name)).content.decode()
+            links = list(dict.fromkeys(re.findall(r'href="(/matches/\d+/)"', page)))
+            self.assertEqual(links, newest[:count], name)
+
 
 # --- Part 1.1: chart-ready internal API ------------------------------------------
 
@@ -146,11 +160,30 @@ class SummaryApiTests(SeededTestCase):
         for name in ["api-summary", "api-summary-matches-per-week"]:
             self.assertEqual(self.client.post(reverse("connect:" + name)).status_code, 405)
 
+    def summary(self):
+        return {r["category"]: r["count"] for r in self.client.get(reverse("connect:api-summary")).json()}
+
+    def test_only_verified_students_count(self):
+        StudentProfile.objects.filter(net_id="apatel22").update(is_sso_verified=False)
+        self.assertEqual(self.summary()["Food"], 3)  # apatel22 is one of Food's four
+
+    def test_interests_with_the_same_name_keep_their_own_bars(self):
+        # Food is both a hobby and a meeting activity.
+        ProfileInterest.objects.create(
+            profile=StudentProfile.objects.get(net_id="jordan4"),
+            interest=Interest.objects.get(name="Food", category=InterestCategory.ACTIVITY))
+        rows = self.summary()
+        self.assertEqual((rows["Food (Hobby / Interest)"], rows["Food (Meeting activity)"]), (4, 1))
+        self.assertNotIn("Food", rows)
+
 
 # --- Part 1.2: Vega-Lite charts ---------------------------------------------------
 
 
 class VegaLiteTests(SeededTestCase):
+
+    def setUp(self):
+        cache.clear()  # the images are cached for a minute
 
     def test_specs_load_their_data_from_the_summary_api(self):
         # The assignment: data.url pointing at our API, never inline values.
@@ -226,6 +259,7 @@ class IcebreakerTests(SeededTestCase):
                         return_value=trivia_reply(body={"response_code": 0, "results": [QUESTION]}))
         self.get = patcher.start()
         self.addCleanup(patcher.stop)
+        cache.clear()  # questions are reused for 5 seconds
         self.squad = Match.objects.get(check_in_code="QC-5193")
 
     def api(self, **params):
@@ -243,9 +277,18 @@ class IcebreakerTests(SeededTestCase):
         self.assertEqual(common_ground(Match.objects.get(check_in_code="QC-1306"))["members"], 2)
 
     def test_tied_topics_are_all_candidates(self):
-        # Both members of QC-1303 picked Art, Movies and Reading.
-        found = common_ground(Match.objects.get(check_in_code="QC-1303"))
-        self.assertIn(found["topic"]["category"], {"Art", "Film", "Books"})
+        # Both members of QC-1303 picked Art, Movies and Reading: three
+        # categories tie, and the random pick is made from all three.
+        with patch("connect.icebreakers.random.choice", side_effect=lambda tied: tied[-1]) as choice:
+            found = common_ground(Match.objects.get(check_in_code="QC-1303"))
+        self.assertEqual([name for _, name in choice.call_args.args[0]], ["Books", "Film", "Art"])
+        self.assertEqual(found["topic"]["category"], "Art")
+
+    def test_questions_are_reused_for_five_seconds(self):
+        # Open Trivia DB turns away a second request within 5 seconds.
+        for _ in range(2):
+            self.assertEqual(self.api(match=self.squad.pk).status_code, 200)
+        self.get.assert_called_once()
 
     def test_nothing_shared_means_general_knowledge(self):
         topic = common_ground(Match.objects.get(check_in_code="QC-4827"))["topic"]
@@ -335,11 +378,12 @@ class ExportTests(SeededTestCase):
 
     def csv_rows(self):
         response = self.client.get(reverse("connect:export-students-csv"))
-        return list(csv.reader(StringIO(response.content.decode())))
+        return list(csv.reader(StringIO(response.content.decode("utf-8-sig"))))
 
     def test_csv_is_a_dated_attachment_with_a_header_row(self):
         response = self.client.get(reverse("connect:export-students-csv"))
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))  # BOM, for Excel
         self.assertRegex(response["Content-Disposition"], STAMPED.replace("{}", "csv"))
         rows = self.csv_rows()
         self.assertEqual(rows[0], FIELDS)

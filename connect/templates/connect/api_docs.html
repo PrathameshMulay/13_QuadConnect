@@ -90,11 +90,12 @@ values and the sample body are read from the real views on every request
       <h2 class="card-title endpoint"><span class="method">GET</span>/api/icebreakers/</h2>
       <p>Five trivia questions for one match from the
          <a href="https://opentdb.com/">Open Trivia Database</a>, on the topic most of its
-         members share, with the interest counts that chose it. The questions are fetched
-         for each request and never stored, and members appear only as counts.</p>
-      <div class="scroll">
+         members share, with the interest counts that chose it. The questions are never
+         saved: a topic's questions are reused for 5 seconds at most, Open Trivia DB's own
+         limit. Members appear only as counts.</p>
+      <div class="scroll" tabindex="0" role="region" aria-labelledby="api-docs-table-3">
         <table>
-          <caption class="visually-hidden">Query parameters for /api/icebreakers/</caption>
+          <caption class="visually-hidden" id="api-docs-table-3">Query parameters for /api/icebreakers/</caption>
           <thead><tr><th scope="col">Parameter</th><th scope="col">Values</th><th scope="col">Required</th></tr></thead>
           <tbody>
             <tr><td><code>match</code></td><td>the id of a match, a whole number</td><td>yes</td></tr>

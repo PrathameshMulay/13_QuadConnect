@@ -17,8 +17,10 @@ free and needs no key. For one match:
   4. processing: the HTML entities Open Trivia DB sends are decoded, and
      each question's choices are sorted, so the answer is not always first.
 
-Nothing from Open Trivia DB is stored: every request fetches new questions.
-Only counts leave through the API, never names, NetIDs or check-in codes.
+Nothing from Open Trivia DB is saved. A category's questions stay in memory
+for 5 seconds at most (see fetch_questions), then the next request fetches
+new ones. Only counts leave through the API, never names, NetIDs or
+check-in codes.
 
 Open Trivia DB allows one request every 5 seconds per IP address and
 answers a faster one with HTTP 429. Our client then gets 503 with
@@ -32,6 +34,7 @@ from collections import Counter, defaultdict
 
 import requests
 from django import forms
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET
@@ -69,7 +72,7 @@ TRIVIA_CATEGORIES = {
     "Illinois Student Government": (24, "Politics"),
 }
 
-BUSY = "Open Trivia DB is busy right now. Try again in a few seconds."
+BUSY = "Open Trivia DB is busy right now."
 
 
 class TriviaUnavailable(Exception):
@@ -121,7 +124,13 @@ def common_ground(match):
 
 def fetch_questions(category_id):
     """Five easy multiple-choice questions from one Open Trivia DB category,
-    or TriviaUnavailable saying why not."""
+    or TriviaUnavailable saying why not. A category's questions are reused
+    for RETRY_AFTER seconds, Open Trivia DB's own limit, so a quick reload
+    gets them again instead of being turned away. Failures are not kept."""
+    return cache.get_or_set(f"trivia:{category_id}", lambda: _ask(category_id), RETRY_AFTER)
+
+
+def _ask(category_id):
     try:
         response = requests.get(TRIVIA_URL, params={
             "amount": QUESTIONS, "category": category_id,

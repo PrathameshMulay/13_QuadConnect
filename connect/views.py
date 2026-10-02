@@ -62,7 +62,9 @@ def home(request):
         ],
         "recent_matches": (
             Match.objects.select_related("location", "suggested_activity")
-            .annotate(headcount=Count("participants"))[:5]
+            .annotate(headcount=Count("participants"))
+            # annotate() drops Meta.ordering (GROUP BY), so order here.
+            .order_by("-week_start", "-scheduled_for", "-pk")[:5]
         ),
         "average_rating": ExperienceFeedback.objects.aggregate(
             avg=Avg("rating")
@@ -220,6 +222,8 @@ def match_list(request):
         Match.objects
         .select_related("location", "suggested_activity")
         .annotate(headcount=Count("participants"))
+        # annotate() drops Meta.ordering (GROUP BY), so order here.
+        .order_by("-week_start", "-scheduled_for", "-pk")
     )
     if selected_week:
         matches = matches.filter(week_start=selected_week)

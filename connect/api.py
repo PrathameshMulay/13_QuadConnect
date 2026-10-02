@@ -27,11 +27,12 @@ feedback. Query parameters are validated with forms, and a bad value gets
 a 400 JSON error naming the parameter and how to fix it.
 """
 
+from collections import Counter
 from datetime import timedelta
 from functools import wraps
 
 from django import forms
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -215,7 +216,7 @@ def match_list_api(request):
     data = filters.cleaned_data
     matches = (Match.objects.select_related("location", "suggested_activity")
                .annotate(participant_count=Count("participants"))
-               .order_by("-week_start", "-scheduled_for"))
+               .order_by("-week_start", "-scheduled_for", "-pk"))
     if data.get("week"):
         matches = matches.filter(week_start=data["week"])
     if data.get("type"):
@@ -238,16 +239,24 @@ def match_list_api(request):
 
 
 def interest_popularity():
-    """Students per interest, most picked first. Interests nobody picked are
-    left out.
+    """Verified students per interest, most picked first. Interests nobody
+    picked are left out. Two interests may share a name across categories
+    (Food is a hobby and a meeting activity); such a name gets its type
+    added, so each one keeps its own bar.
 
     [{"category": "Food", "count": 4, "type": "Hobby / Interest"}, ...]
     """
-    interests = (Interest.objects.annotate(students=Count("profile_links"))
+    verified = Q(profile_links__profile__is_sso_verified=True)
+    interests = (Interest.objects.annotate(students=Count("profile_links", filter=verified))
                  .filter(students__gt=0)
                  .order_by("-students", "name"))
-    return [{"category": i.name, "count": i.students,
+    rows = [{"category": i.name, "count": i.students,
              "type": i.get_category_display()} for i in interests]
+    names = Counter(r["category"] for r in rows)
+    for r in rows:
+        if names[r["category"]] > 1:
+            r["category"] = f"{r['category']} ({r['type']})"
+    return rows
 
 
 def matches_per_week():

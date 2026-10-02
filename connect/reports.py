@@ -80,6 +80,7 @@ def _cell(value):
 def students_csv(request):
     """GET /export/students.csv - a header row, then one row per student."""
     response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response.write("\ufeff")  # byte order mark: Excel then reads the file as UTF-8
     writer = csv.DictWriter(response, fieldnames=FIELDS)  # raises on a field not listed
     writer.writeheader()
     for row in student_records():

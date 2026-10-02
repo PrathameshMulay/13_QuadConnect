@@ -38,8 +38,9 @@ says why and still shows what the group has in common.
   </p>
 
   {% if error %}
-    <p class="message message-info" role="status">
-      The questions could not be loaded. {{ error }}
+    <p class="message message-info">
+      The questions could not be loaded. {{ error }} Reload the page in a few
+      seconds to try again.
     </p>
   {% else %}
     <ol class="list">

@@ -23,8 +23,8 @@ unchanged, so the image is the same chart.
 import json
 from pathlib import Path
 
-import vl_convert
 from django.http import Http404, HttpResponse, JsonResponse
+from django.views.decorators.cache import cache_page
 from django.views.decorators.http import require_GET
 
 from .api import allow_any_origin, interest_popularity, matches_per_week
@@ -39,8 +39,8 @@ CHARTS = {
     "chart2": ("chart2_line.vl.json", matches_per_week),
 }
 FORMATS = {
-    "png": ("image/png", vl_convert.vegalite_to_png),
-    "jpg": ("image/jpeg", vl_convert.vegalite_to_jpeg),
+    "png": ("image/png", "vegalite_to_png"),
+    "jpg": ("image/jpeg", "vegalite_to_jpeg"),
 }
 
 
@@ -76,12 +76,17 @@ def vega_spec(request, chart):
                         json_dumps_params={"indent": 2})
 
 
+@cache_page(60)  # a render takes about a second; a minute-old chart is fine
 @require_GET
 def vega_image(request, chart, fmt):
     """GET /vega-lite/<chart>.png or .jpg - the chart rendered on the server."""
     if fmt not in FORMATS:
         raise Http404(f"Charts come as {', '.join(FORMATS)}, not {fmt!r}.")
-    content_type, render = FORMATS[fmt]
-    image = render(spec_for_image(chart), vl_version=VEGA_LITE_VERSION,
-                   scale=2, allowed_base_urls=[])
+    # Imported here, not at the top: if the renderer's native library fails
+    # to load on a host, only these image URLs fail, not every page.
+    import vl_convert
+
+    content_type, function = FORMATS[fmt]
+    image = getattr(vl_convert, function)(spec_for_image(chart), vl_version=VEGA_LITE_VERSION,
+                                          scale=2, allowed_base_urls=[])
     return HttpResponse(image, content_type=content_type)
