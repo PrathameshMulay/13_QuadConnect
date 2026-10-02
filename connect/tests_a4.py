@@ -177,3 +177,12 @@ class VegaLiteTests(SeededTestCase):
     def test_unknown_chart_or_format_is_404(self):
         for path in ["/vega-lite/chart9.png", "/vega-lite/chart1.gif", "/vega-lite/chart9.vl.json"]:
             self.assertEqual(self.client.get(path).status_code, 404, path)
+
+    def test_insights_page_embeds_both_charts_with_fallbacks(self):
+        response = self.client.get(reverse("connect:insights"))
+        for name in ["chart1", "chart2"]:
+            self.assertContains(response, f'data-vega-spec="{reverse("connect:vega-spec", args=[name])}"')
+        self.assertContains(response, "vendor/vega/vega-embed")
+        self.assertContains(response, "<noscript>", count=2)
+        self.assertContains(response, 'alt="Bar chart of 22 interests by how many verified students')
+        self.assertContains(response, 'alt="Line chart of matches scheduled each week from 2026-07-13 to 2026-09-07')

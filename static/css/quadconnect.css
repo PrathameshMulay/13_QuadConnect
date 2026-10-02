@@ -445,6 +445,12 @@ figure.chart img {
   border-radius: var(--radius);
   background: var(--card);
 }
+/* Vega-Lite charts (Insights, Figures 3-4). vega-embed's wrapper must span
+   the figure for the spec's width: "container" to fill it; the minimum
+   height keeps the page from jumping while the chart draws. */
+.vega-chart { min-height: 320px; }
+.vega-chart .vega-embed { display: block; width: 100%; }
+
 figure.chart figcaption { font-size: 13.5px; color: var(--muted); margin-top: 8px; }
 
 details.data { margin-top: 12px; }
