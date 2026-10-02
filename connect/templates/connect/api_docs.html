@@ -1,7 +1,8 @@
 {% extends "connect/base.html" %}
 {% comment %}
-API documentation (P1-A3 Section 6). The Content-Type values and the sample
-body are read from the real views on every request (see connect/api.py).
+API documentation (P1-A3 Section 6, extended in P1-A4). The Content-Type
+values and the sample body are read from the real views on every request
+(see connect/api.py).
 {% endcomment %}
 
 {% block title %}API - QuadConnect{% endblock %}
@@ -9,9 +10,10 @@ body are read from the real views on every request (see connect/api.py).
 
 {% block subtitle %}
   <p class="sub">
-    A read-only JSON API over public data: approved venues and the match
-    schedule. No student names, NetIDs, emails, check-in codes or feedback
-    are ever returned. Every endpoint is read-only and answers GET.
+    A read-only JSON API over public data: approved venues, the match
+    schedule, chart data and icebreaker trivia. No student names, NetIDs,
+    emails, check-in codes or feedback are ever returned. Every endpoint is
+    read-only and answers GET.
   </p>
 {% endblock %}
 
@@ -65,15 +67,71 @@ body are read from the real views on every request (see connect/api.py).
         {% for url in examples.text %}<a href="{{ url }}">{{ url }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}
       </p>
     </li>
+
+    <li class="card">
+      <h2 class="card-title endpoint"><span class="method">GET</span>/api/summary/</h2>
+      <p>How many verified students picked each interest, most picked first: a plain list of
+         <code>{"category", "count", "type"}</code> rows, the shape Vega-Lite reads as it is.
+         The bar chart on the <a href="{% url 'connect:insights' %}">Insights</a> page loads it
+         with <code>data.url</code>.</p>
+      <p class="form-note">Try: <a href="{{ examples.summary.0 }}">{{ examples.summary.0 }}</a></p>
+    </li>
+
+    <li class="card">
+      <h2 class="card-title endpoint"><span class="method">GET</span>/api/summary/matches-per-week/</h2>
+      <p>Matches scheduled in each weekly cycle, oldest first, as
+         <code>{"records": [{"date", "count", "participants"}, ...]}</code>. A week with no
+         matches is listed with a count of 0, so a line chart shows the gap. The line chart
+         reads it with <code>"format": {"property": "records"}</code>.</p>
+      <p class="form-note">Try: <a href="{{ examples.summary.1 }}">{{ examples.summary.1 }}</a></p>
+    </li>
+
+    <li class="card">
+      <h2 class="card-title endpoint"><span class="method">GET</span>/api/icebreakers/</h2>
+      <p>Five trivia questions for one match from the
+         <a href="https://opentdb.com/">Open Trivia Database</a>, on the topic most of its
+         members share, with the interest counts that chose it. The questions are fetched
+         for each request and never stored, and members appear only as counts.</p>
+      <div class="scroll">
+        <table>
+          <caption class="visually-hidden">Query parameters for /api/icebreakers/</caption>
+          <thead><tr><th scope="col">Parameter</th><th scope="col">Values</th><th scope="col">Required</th></tr></thead>
+          <tbody>
+            <tr><td><code>match</code></td><td>the id of a match, a whole number</td><td>yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="form-note">Try:
+        {% for url in examples.icebreakers %}<a href="{{ url }}">{{ url }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}
+      </p>
+    </li>
   </ul>
+
+  <h2 class="section">Charts</h2>
+  <div class="card">
+    <p>The two Vega-Lite charts on the Insights page. Each spec loads its data from the API
+       above and opens as it is in the <a href="https://vega.github.io/editor/">Vega-Lite
+       editor</a>. The images are the same charts drawn on the server.</p>
+    <ul>
+      <li>Students per interest (bar chart):
+        <a href="{% url 'connect:vega-spec' 'chart1' %}">{% url 'connect:vega-spec' 'chart1' %}</a> &middot;
+        <a href="{% url 'connect:vega-image' 'chart1' 'png' %}">{% url 'connect:vega-image' 'chart1' 'png' %}</a></li>
+      <li>Matches each week (line chart):
+        <a href="{% url 'connect:vega-spec' 'chart2' %}">{% url 'connect:vega-spec' 'chart2' %}</a> &middot;
+        <a href="{% url 'connect:vega-image' 'chart2' 'jpg' %}">{% url 'connect:vega-image' 'chart2' 'jpg' %}</a></li>
+    </ul>
+  </div>
 
   <h2 class="section">Responses</h2>
   <div class="grid-2">
     <div class="card">
       <h3 class="card-title">Success: 200</h3>
-      <p>Every JSON list has the same shape: <code>count</code>, the <code>filters</code> that
-         were applied, and <code>results</code>. Each result carries a <code>url</code> to its
-         page on the site, built from the model's <code>get_absolute_url()</code>.</p>
+      <p>The venue and match lists share one shape: <code>count</code>, the
+         <code>filters</code> that were applied, and <code>results</code>. Each result carries a
+         <code>url</code> to its page on the site, built from the model's
+         <code>get_absolute_url()</code>. Every endpoint can be read from any other site
+         (<code>Access-Control-Allow-Origin: *</code>), so a chart in the Vega-Lite editor can
+         load it.</p>
     </div>
     <div class="card">
       <h3 class="card-title">Bad parameter: 400</h3>
@@ -81,6 +139,18 @@ body are read from the real views on every request (see connect/api.py).
          fix it:</p>
       <pre class="code"><code>{"error": "Invalid query parameter.",
  "fields": {"min_seats": ["Use a whole number, e.g. min_seats=8."]}}</code></pre>
+    </div>
+    <div class="card">
+      <h3 class="card-title">No such match: 404</h3>
+      <p><code>/api/icebreakers/</code> answers with an <code>error</code> naming the id when
+         no match has it.</p>
+    </div>
+    <div class="card">
+      <h3 class="card-title">Open Trivia DB failed: 502, 503, 504</h3>
+      <p>When <code>/api/icebreakers/</code> cannot get questions, the <code>error</code> says
+         why: 504 if Open Trivia DB took longer than 5 seconds, 503 with
+         <code>Retry-After: 5</code> if it is busy (it takes one request every 5 seconds), and
+         502 for any other failure.</p>
     </div>
   </div>
 

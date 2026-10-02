@@ -7,6 +7,7 @@ Read-only JSON API (P1-A3 Section 6, extended in P1-A4).
     GET /api/locations.txt              FBV  location_list_text  HttpResponse, text/plain
     GET /api/summary/                   FBV  summary_api         chart-ready list (A4)
     GET /api/summary/matches-per-week/  FBV  matches_per_week_api  chart-ready records (A4)
+    GET /api/icebreakers/?match=<id>    FBV  (icebreakers.py)    Open Trivia DB (A4)
 
 The two /api/summary/ endpoints feed the Vega-Lite charts: flat rows, no
 wrapping metadata, so a spec can point data.url straight at them. Every
@@ -307,6 +308,7 @@ def api_docs(request):
     locations = reverse("connect:api-locations")
     matches = reverse("connect:api-matches")
     text = reverse("connect:api-locations-text")
+    icebreakers = reverse("connect:api-icebreakers")
     return render(request, "connect/api_docs.html", {
         "sample": json_response.content.decode(),
         "json_type": json_response["Content-Type"],
@@ -321,5 +323,8 @@ def api_docs(request):
                         f"{matches}?status=COMPLETED",
                         f"{matches}?week=next-week"],
             "text": [text, f"{text}?setting=outdoor"],
+            "summary": [reverse("connect:api-summary"),
+                        reverse("connect:api-summary-matches-per-week")],
+            "icebreakers": [f"{icebreakers}?match=2", f"{icebreakers}?match=two"],
         },
     })

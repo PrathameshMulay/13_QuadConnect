@@ -12,10 +12,13 @@ The four graded P1-A2 views:
     /feedback/summary/    connect:feedback-summary   HttpResponse  Dhruv
 
 P1-A3 added detail pages (/matches/<pk>/, /locations/<pk>/), search
-(/search/), charts (/insights/...) and the JSON API (/api/...), each under a
-comment naming its assignment section. Paths and names must not change
-without updating base.html and the models' get_absolute_url(), which
-reverse them.
+(/search/), charts (/insights/...) and the JSON API (/api/...). P1-A4 added
+chart data (/api/summary/...), Vega-Lite specs and images (/vega-lite/...),
+icebreakers (/api/icebreakers/, /matches/<pk>/icebreakers/), and reports
+with exports (/reports/, /export/...). Each group sits under a comment
+naming its assignment section; every /api/ route is in one block. Paths and
+names must not change without updating base.html and the models'
+get_absolute_url(), which reverse them.
 """
 
 from django.urls import path
@@ -64,7 +67,7 @@ urlpatterns = [
     path("insights/interest-categories.png", charts.interest_categories_png,
          name="chart-interest-categories"),
 
-    # --- P1-A3 Section 6 - read-only JSON API -----------------------------
+    # --- Read-only JSON API (P1-A3 Section 6, extended in P1-A4) -----------
     path("api/", api.api_docs, name="api-docs"),
     path("api/locations/", api.LocationListAPI.as_view(), name="api-locations"),
     path("api/matches/", api.match_list_api, name="api-matches"),
