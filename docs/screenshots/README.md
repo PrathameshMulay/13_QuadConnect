@@ -46,3 +46,33 @@ same code run with production settings (`DEBUG=False`) after `collectstatic`.
 | `17_api_bad_param_400.png` | 6 | 400 response naming each bad parameter |
 | `18_api_text_plain.png` | 6 | Same data through `HttpResponse`, `text/plain`: no Pretty-print toggle, unlike the JSON in 15 |
 | `19_api_docs_mime.png` | 6 | Content-Type of each response class, read live |
+
+## P1-A4 ([`p1-a4/`](p1-a4/))
+
+Taken the same way as P1-A3: a headless browser at 1280 px wide, with a
+caption strip giving the URL that was loaded and what the image shows. Port
+8001 is the development server; 8002 runs the same code with production
+settings after `collectstatic`. Screenshots 06 and 07 load our spec into the
+public Vega-Lite editor, which reads its data from the local API. 16 shows
+the two files the Reports page's buttons saved, with their real names and
+first lines.
+
+| File | Part | Shows |
+|---|---|---|
+| `01_vega_bar_chart.png` | 1.2 | Vega-Lite bar chart on the Insights page, data from `/api/summary/` |
+| `02_vega_line_chart.png` | 1.2 | Vega-Lite line chart, with the tooltip of one week |
+| `03_chart1_png.png` | 1.2 | `/vega-lite/chart1.png`, drawn on the server |
+| `04_chart2_jpg.png` | 1.2 | `/vega-lite/chart2.jpg`, drawn on the server |
+| `05_chart1_spec.png` | 1.2 | The spec as served: `data.url`, no inline data |
+| `06_vega_editor_bar.png` | 1.2 | The bar chart's spec running in the Vega-Lite editor |
+| `07_vega_editor_line.png` | 1.2 | The line chart's spec running in the Vega-Lite editor |
+| `08_api_summary.png` | 1.1 | `/api/summary/`: chart-ready rows |
+| `09_api_matches_per_week.png` | 1.1 | `/api/summary/matches-per-week/`: chart-ready records |
+| `10_icebreakers_page.png` | 2 | Icebreakers page: Open Trivia DB questions on the group's shared topic |
+| `11_icebreakers_api_counts.png` | 2 | `/api/icebreakers/?match=2`: our member counts per interest |
+| `12_icebreakers_api_questions.png` | 2 | The same response: the topic the counts picked, and the questions |
+| `13_icebreakers_api_400.png` | 2 | A bad `match` parameter: 400 with how to fix it |
+| `14_icebreakers_busy.png` | 2 | Open Trivia DB busy (two requests within 5 s): the page explains |
+| `15_reports_page.png` | 3 | Grouped summaries, totals, Download CSV and JSON buttons |
+| `16_downloaded_files.png` | 3 | The two downloaded files: timestamped names and their first lines |
+| `17_production_insights.png` | 4 | Production settings: hashed static files, charts still drawn |
