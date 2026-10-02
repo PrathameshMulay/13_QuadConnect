@@ -168,6 +168,33 @@ jobs:
           expect 404 text/html        /no-such-page/
           expect 302 text/html        /admin/
 
+          # P1-A4. The icebreakers API is only called on its error paths:
+          # its success path depends on Open Trivia DB. The page answers 200
+          # either way, and says so when Open Trivia DB fails.
+          expect 200 application/json /api/summary/
+          expect 200 application/json /api/summary/matches-per-week/
+          expect 200 application/json /vega-lite/chart1.vl.json
+          expect 200 image/png        /vega-lite/chart1.png
+          expect 200 image/jpeg       /vega-lite/chart2.jpg
+          expect 404 text/html        /vega-lite/chart9.png
+          expect 400 application/json /api/icebreakers/
+          expect 404 application/json "/api/icebreakers/?match=999"
+          expect 200 text/html        /matches/2/icebreakers/
+          expect 200 text/html        /reports/
+          expect 200 text/csv         /export/students.csv
+          expect 200 application/json /export/students.json
+
+          # The four scripts the Insights page loads (Vega, Vega-Lite,
+          # vega-embed and the chart code) must be hashed static files.
+          scripts="$(curl -fs "$base/insights/" | grep -o '/static/[^"]*\.[0-9a-f]\{12\}\.js' || true)"
+          if [ "$(printf '%s\n' "$scripts" | grep -c .)" -ne 4 ]; then
+            echo "::error::The Insights page does not load its four hashed scripts: $scripts"
+            exit 1
+          fi
+          for js in $scripts; do
+            expect 200 text/javascript "$js"
+          done
+
           # Cache busting: the page must link a content-hashed stylesheet,
           # served with a far-future immutable cache header.
           css="$(curl -fs "$base/" | grep -o '/static/css/quadconnect\.[0-9a-f]\{12\}\.css' | head -n 1 || true)"
