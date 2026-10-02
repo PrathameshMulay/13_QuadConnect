@@ -2,7 +2,7 @@
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "title": {
     "text": "Matches each week",
-    "subtitle": "Meetups scheduled in each weekly matching cycle",
+    "subtitle": "Meetups scheduled in each weekly cycle",
     "anchor": "start"
   },
   "description": "Line chart of how many matches were scheduled in each weekly cycle, from the summer pilot to the current week.",

@@ -2,7 +2,7 @@
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "title": {
     "text": "Students per interest",
-    "subtitle": "Verified students who picked each interest or student organization, most picked first",
+    "subtitle": "Verified students, most picked first",
     "anchor": "start"
   },
   "description": "Bar chart of how many verified students picked each interest or registered student organization, most picked first.",
