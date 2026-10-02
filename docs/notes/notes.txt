@@ -22,6 +22,55 @@ Sections:
 ================================================================================
 
 --------------------------------------------------------------------------------
+WEEK 6  (w/c 2026-09-28)  -  P1-A4 on feature/p1-a4  [Manojkumar]
+--------------------------------------------------------------------------------
+Built on branch feature/p1-a4, cut from main after P1-A3 (PR #8). Not merged
+into main yet. P1-A4 is due Mon 2026-10-05, 23:59.
+
+Done, by assignment part:
+  P1  /api/summary/ (students per interest, a bare list of category/count
+      rows) and /api/summary/matches-per-week/ (weekly records; empty weeks
+      show as 0). Two Vega-Lite v6 specs in connect/specs/, both loading
+      data.url, no inline data: a bar chart and a line chart. They are drawn
+      on /insights/ (Figures 3-4) by vega-embed, and on the server at
+      /vega-lite/chart1.png and /vega-lite/chart2.jpg by vl-convert. Both
+      specs run in the Vega-Lite editor against the local server.
+  P2  Icebreakers from Open Trivia DB: /api/icebreakers/?match=<id> and
+      /matches/<id>/icebreakers/. Our member counts per interest pick a
+      trivia category; five questions come from requests.get(params=...,
+      timeout=5) and raise_for_status(). Errors: 400, 404, 502, 503 (with
+      Retry-After), 504. Nothing stored; members appear only as counts.
+  P3  /export/students.csv and /export/students.json: timestamped
+      attachments, rows ordered by name, email left out. /reports/: students
+      per college and matches per venue with totals rows, a totals line,
+      and the two download buttons.
+  P4  Static settings checked; requirements.txt from pip freeze in a clean
+      virtualenv (23 packages); .gitignore reviewed; db.sqlite3 committed
+      with seed data only. The seed now adds 16 past matches over nine
+      weeks (for the line chart), fixed sign-up dates and both staff
+      accounts. CI checks the committed database and the install size
+      (318 MB on Linux).
+
+Verified:
+  - 83 tests (45 from A3, 38 new), ruff clean, check --deploy 0 issues.
+  - The whole CI job on a clean checkout: every step passed, including the
+    smoke test of 32 URLs and the four hashed scripts on the Insights page.
+  - 17 screenshots in docs/screenshots/p1-a4/, listed in its README.
+
+Decisions:
+  - Open Trivia DB: no key, on PythonAnywhere's free allowlist, and its
+    categories map onto our interests.
+  - The chart images are drawn in-process: vl-convert gets the API's rows,
+    not its URL. A server that requests itself can stall on one worker,
+    and the renderer then needs no network at all.
+  - The exports leave out the Illinois email.
+
+Next:
+  - Deploy once the host is chosen (Parts 4.3-4.4), then try the specs in
+    the Vega-Lite editor with the deployed URLs.
+  - Merge feature/p1-a4 into main through a PR after its check passes.
+
+--------------------------------------------------------------------------------
 WEEK 6  (w/c 2026-09-28)  -  P1-A3 merged into main  [PR #6]
 --------------------------------------------------------------------------------
 Merged:
@@ -678,8 +727,10 @@ Team-level observation
   already named and reversed there. If you think you need to change it,
   message the group instead.
   P1-A3 changed it once (built on feature/p1-a3, now on main): base.html
-  now loads the static files and has 8 nav links. Adding a page? Add its nav
-  link there, with the same aria-current pattern as the others.
+  now loads the static files and has 8 nav links. P1-A4 added a ninth,
+  Reports, and a {% block scripts %} at the end of <body> for per-page
+  JavaScript. Adding a page? Add its nav link there, with the same
+  aria-current pattern as the others.
 - Styling lives in static/css/quadconnect.css. No style="" attributes in
   templates, and measure any new colour against WCAG AA before using it.
 - Run python manage.py test connect before you push.
@@ -721,6 +772,9 @@ Team-level observation
   repository link, https://github.com/manojkmohan5/13_QuadConnect
   Screenshots are in docs/screenshots/p1-a3/.
   Production needs one extra deploy step now: collectstatic --noinput.
+- P1-A4 (Manojkumar): built on feature/p1-a4. Due Mon 2026-10-05, 23:59.
+  Submit the Vega-Lite specs (connect/specs/) and screenshots of the working
+  charts (docs/screenshots/p1-a4/). Deployment waits for the host choice.
 
 
 ================================================================================
@@ -742,6 +796,16 @@ Team-level observation
   They are never published before review, but nothing stops a flood of
   unapproved rows. Require login (and throttle) before real students use
   it.
+- Open Trivia DB allows one request per 5 seconds from each IP address.
+  On a host whose free plan sends all traffic through one shared proxy
+  (PythonAnywhere does), other users' requests count too, so "busy" may
+  come up more often than locally. The page then says so and keeps the
+  interests table; a short cache of the questions would be the fix if it
+  becomes a problem.
+- vl-convert starts its renderer with the first chart image a process
+  draws. That took 3-4 seconds here, and twice took close to a minute on
+  Windows with other heavy programs running. Later images take about one
+  second.
 - Still unspecified: the matching algorithm itself. compatibility_score and
   match_reason exist as fields but nothing computes them outside seed data.
   This is the biggest open design question for the next assignment.
