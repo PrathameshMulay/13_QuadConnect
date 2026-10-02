@@ -7,16 +7,20 @@ These run on the real seed data (seed_demo_data), because the charts,
 reports and exports are about the dataset the deployed site serves.
 """
 
+import json
 from datetime import date, timedelta
 from io import StringIO
 from itertools import pairwise
+from unittest.mock import patch
 
+import requests
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
 
+from .icebreakers import TRIVIA_URL, common_ground
 from .management.commands.seed_demo_data import HISTORY, STAFF_PASSWORD
 from .models import (
     ExperienceFeedback,
@@ -186,3 +190,125 @@ class VegaLiteTests(SeededTestCase):
         self.assertContains(response, "<noscript>", count=2)
         self.assertContains(response, 'alt="Bar chart of 22 interests by how many verified students')
         self.assertContains(response, 'alt="Line chart of matches scheduled each week from 2026-07-13 to 2026-09-07')
+
+
+# --- Part 2: external API (Open Trivia DB icebreakers) --------------------------------
+
+
+def trivia_reply(status=200, body=None):
+    """A requests.Response as Open Trivia DB would send it."""
+    response = requests.Response()
+    response.status_code = status
+    response.url = TRIVIA_URL
+    response._content = body if isinstance(body, bytes) else json.dumps(body).encode()
+    return response
+
+
+QUESTION = {"type": "multiple", "difficulty": "easy", "category": "Sports",
+            "question": "Which country produced Cafu and Pel&eacute;?",
+            "correct_answer": "Brazil", "incorrect_answers": ["Spain", "Argentina", "Portugal"]}
+
+
+def flat(response):
+    """The page's text with runs of whitespace collapsed to single spaces."""
+    return " ".join(response.content.decode().split())
+
+
+class IcebreakerTests(SeededTestCase):
+    """requests.get is replaced in every test: none of them uses the network."""
+
+    def setUp(self):
+        patcher = patch("connect.icebreakers.requests.get",
+                        return_value=trivia_reply(body={"response_code": 0, "results": [QUESTION]}))
+        self.get = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.squad = Match.objects.get(check_in_code="QC-5193")
+
+    def api(self, **params):
+        return self.client.get(reverse("connect:api-icebreakers"), params)
+
+    def test_topic_is_the_category_most_members_share(self):
+        found = common_ground(self.squad)
+        self.assertEqual(found["members"], 5)
+        self.assertEqual(found["topic"], {"category_id": 21, "category": "Sports", "members": 3,
+                                          "because": ["Basketball", "Fitness"]})
+        self.assertEqual(found["interests"][0],
+                         {"interest": "Fitness", "members": 3, "trivia_category": "Sports"})
+
+    def test_members_who_declined_are_left_out(self):
+        self.assertEqual(common_ground(Match.objects.get(check_in_code="QC-1306"))["members"], 2)
+
+    def test_tied_topics_are_all_candidates(self):
+        # Both members of QC-1303 picked Art, Movies and Reading.
+        found = common_ground(Match.objects.get(check_in_code="QC-1303"))
+        self.assertIn(found["topic"]["category"], {"Art", "Film", "Books"})
+
+    def test_nothing_shared_means_general_knowledge(self):
+        topic = common_ground(Match.objects.get(check_in_code="QC-4827"))["topic"]
+        self.assertEqual((topic["category_id"], topic["members"], topic["because"]), (9, 0, []))
+
+    def test_api_combines_our_counts_with_the_questions(self):
+        response = self.api(match=self.squad.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Access-Control-Allow-Origin"], "*")
+        data = response.json()
+        self.assertEqual(data["topic"]["category"], "Sports")
+        self.assertEqual(data["questions"], [{"question": "Which country produced Cafu and Pelé?",
+                                              "choices": ["Argentina", "Brazil", "Portugal", "Spain"],
+                                              "answer": "Brazil"}])
+        self.assertEqual(data["source"]["license"], "CC BY-SA 4.0")
+        self.get.assert_called_once_with(TRIVIA_URL, params={
+            "amount": 5, "category": 21, "difficulty": "easy", "type": "multiple"}, timeout=5)
+
+    def test_api_names_nobody(self):
+        body = self.api(match=self.squad.pk).content.decode()
+        for p in self.squad.participants.select_related("profile"):
+            self.assertNotIn(p.profile.net_id, body)
+            self.assertNotIn(p.profile.full_name, body)
+        self.assertNotIn(self.squad.check_in_code, body)
+
+    def test_missing_bad_or_unknown_match(self):
+        self.assertIn("match", self.api().json()["fields"])
+        self.assertEqual(self.api(match="two").status_code, 400)
+        self.assertEqual(self.api(match=999).status_code, 404)
+        self.get.assert_not_called()
+
+    def test_upstream_failures_become_gateway_errors(self):
+        for outcome, status in [
+            (requests.Timeout(), 504),
+            (requests.ConnectionError(), 502),
+            (trivia_reply(429, {"response_code": 5, "results": []}), 503),
+            (trivia_reply(200, {"response_code": 5, "results": []}), 503),
+            (trivia_reply(500, b"<h1>Server Error</h1>"), 502),
+            (trivia_reply(200, b"<h1>Not JSON</h1>"), 502),
+            (trivia_reply(200, {"response_code": 1, "results": []}), 502),
+            (trivia_reply(200, {"response_code": 0, "results": [{"question": "?"}]}), 502),
+        ]:
+            with self.subTest(outcome=outcome):
+                self.get.side_effect = outcome if isinstance(outcome, Exception) else None
+                self.get.return_value = outcome
+                with self.assertLogs("connect.icebreakers", "WARNING"):
+                    response = self.api(match=self.squad.pk)
+                self.assertEqual(response.status_code, status)
+                self.assertTrue(response.json()["error"])
+                self.assertEqual(response.get("Retry-After"), "5" if status == 503 else None)
+
+    def test_page_shows_the_questions_and_why(self):
+        response = self.client.get(reverse("connect:match-icebreakers", args=[self.squad.pk]))
+        text = flat(response)
+        self.assertIn("Sports trivia", text)
+        self.assertIn("Picked because 3 of the 5 members chose Basketball or Fitness.", text)
+        self.assertIn("1. Which country produced Cafu and Pelé?", text)
+        self.assertIn("Open Trivia Database", text)
+
+    def test_page_still_shows_the_interests_when_trivia_fails(self):
+        self.get.side_effect = requests.Timeout()
+        with self.assertLogs("connect.icebreakers", "WARNING"):
+            response = self.client.get(reverse("connect:match-icebreakers", args=[self.squad.pk]))
+        self.assertContains(response, "did not answer within 5 seconds")
+        self.assertContains(response, "<td>Fitness</td>")
+
+    def test_match_page_links_here(self):
+        response = self.client.get(self.squad.get_absolute_url())
+        self.assertContains(response, reverse("connect:match-icebreakers", args=[self.squad.pk]))
+        self.assertEqual(self.client.get(reverse("connect:match-icebreakers", args=[999])).status_code, 404)

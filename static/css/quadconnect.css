@@ -262,7 +262,7 @@ h2.section {
   box-shadow: var(--shadow);
 }
 /* Record lists are real <ul>s so screen readers announce "list, N items". */
-ul.list { list-style: none; margin: 0; padding: 0; }
+ul.list, ol.list { list-style: none; margin: 0; padding: 0; }
 .list > .card + .card { margin-top: 10px; }
 .card.linked { transition: box-shadow 0.15s ease, transform 0.15s ease; }
 .card.linked:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px); }
@@ -455,6 +455,10 @@ figure.chart figcaption { font-size: 13.5px; color: var(--muted); margin-top: 8p
 
 details.data { margin-top: 12px; }
 details.data summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+
+/* --- Icebreakers ---------------------------------------------------------- */
+.question { margin: 0; font-weight: 600; font-size: 15.5px; }
+ul.choices { margin: 8px 0 0; padding-left: 22px; }
 
 /* --- API docs ------------------------------------------------------------ */
 .endpoint { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }

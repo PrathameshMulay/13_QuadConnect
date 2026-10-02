@@ -20,7 +20,7 @@ reverse them.
 
 from django.urls import path
 
-from . import api, charts, vega_charts, views
+from . import api, charts, icebreakers, vega_charts, views
 
 app_name = "connect"
 
@@ -40,6 +40,9 @@ urlpatterns = [
     path("matches/", views.match_list, name="match-list"),
     path("matches/<int:pk>/", views.MatchDetailView.as_view(),
          name="match-detail"),
+    # P1-A4 Part 2 - the same result as /api/icebreakers/, as a page.
+    path("matches/<int:pk>/icebreakers/", icebreakers.icebreakers_page,
+         name="match-icebreakers"),
 
     # --- Prathamesh Mulay - Base CBV (POST added in P1-A3 Section 5) --------
     path(
@@ -70,6 +73,8 @@ urlpatterns = [
     path("api/summary/", api.summary_api, name="api-summary"),
     path("api/summary/matches-per-week/", api.matches_per_week_api,
          name="api-summary-matches-per-week"),
+    # Open Trivia DB questions for a match, from its members' interests (Part 2).
+    path("api/icebreakers/", icebreakers.icebreakers_api, name="api-icebreakers"),
 
     # --- P1-A4 Part 1.2 - Vega-Lite charts ---------------------------------
     # The spec (data.url points at /api/summary/...) and server-rendered images.
