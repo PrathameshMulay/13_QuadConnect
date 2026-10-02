@@ -53,9 +53,15 @@ Open <http://127.0.0.1:8000/>. Run the test suite with
 The first command after installing pauses for a while (up to a minute on
 Windows) while Matplotlib builds its font cache. That happens once.
 
-`db.sqlite3` is intentionally **not** committed — a tracked binary conflicts on
-every branch. `seed_demo_data` is idempotent and rebuilds the same dataset, so
-run it instead of sharing a database file.
+`db.sqlite3` **is committed**, because P1-A4 deploys it as-is. It holds only the
+seed data (`migrate`, then `seed_demo_data`, on an empty file): no login
+sessions, no admin history. So after cloning, `migrate` and `seed_demo_data`
+change nothing, and the site works straight away. If a local change dirties
+it, rebuild it rather than committing the change:
+
+```bash
+rm db.sqlite3 && python manage.py migrate && python manage.py seed_demo_data
+```
 
 ### Admin
 

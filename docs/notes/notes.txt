@@ -695,9 +695,10 @@ Team-level observation
       pip install -r requirements.txt
       python manage.py migrate
       python manage.py seed_demo_data
-- db.sqlite3 is gitignored on purpose. Never force-add it: a tracked binary
-  would conflict on every branch. seed_demo_data is idempotent, so re-run it
-  instead of sharing a database file.
+- db.sqlite3 is committed since P1-A4 (the assignment deploys it). It must
+  hold only seed data. Never commit a copy you have used locally (admin
+  logins leave session rows); rebuild it instead:
+      rm db.sqlite3 && python manage.py migrate && python manage.py seed_demo_data
 
 
 ================================================================================

@@ -6,7 +6,7 @@
 *.key
 
 # --- Django ----------------------------------------------------------------
-db.sqlite3
+# db.sqlite3 itself is committed (P1-A4 deploys it); only its journal is not.
 db.sqlite3-journal
 staticfiles/
 /media/

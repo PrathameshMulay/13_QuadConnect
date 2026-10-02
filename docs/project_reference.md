@@ -201,7 +201,7 @@ the same models as a foundation.
 ├── .env.example                   committed, placeholders only
 ├── requirements.txt               Django 5.2.17, python-dotenv, whitenoise, matplotlib
 ├── manage.py                      -> quadconnect.settings.development
-├── db.sqlite3                     IGNORED — rebuild with seed_demo_data
+├── db.sqlite3                     COMMITTED since A4 — seed data only
 ├── static/                        (A3) css/quadconnect.css, img/logo.svg, fonts/
 ├── staticfiles/                   IGNORED — collectstatic output (production)
 ├── docs/
@@ -837,8 +837,10 @@ empty state renders (forced in a rolled-back transaction).
    inline for that reason. A3 moved it to `static/` and added WhiteNoise in the
    same change. Production now needs `collectstatic --noinput` first, or every
    `{% static %}` raises (the manifest does not exist yet).
-4. **`db.sqlite3` is gitignored.** Never `git add -f` it — a tracked binary
-   conflicts on every branch. Re-run `seed_demo_data` instead.
+4. **`db.sqlite3` is committed (since A4), and must hold only seed data.**
+   Logging in to the admin locally writes a session row; committing that
+   would publish a working session key. Rebuild it instead: delete the
+   file, `migrate`, `seed_demo_data`. CI fails if it holds sessions.
 5. **`UniqueConstraint` cannot span relations** (see §6).
 6. **`private_note` is private.** Never render it, and never show per-student
    ratings. Aggregate only.
