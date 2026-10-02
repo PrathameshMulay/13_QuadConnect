@@ -20,7 +20,7 @@ reverse them.
 
 from django.urls import path
 
-from . import api, charts, icebreakers, vega_charts, views
+from . import api, charts, icebreakers, reports, vega_charts, views
 
 app_name = "connect"
 
@@ -80,4 +80,9 @@ urlpatterns = [
     # The spec (data.url points at /api/summary/...) and server-rendered images.
     path("vega-lite/<slug:chart>.vl.json", vega_charts.vega_spec, name="vega-spec"),
     path("vega-lite/<slug:chart>.<slug:fmt>", vega_charts.vega_image, name="vega-image"),
+
+    # --- P1-A4 Part 3 - reports and the student exports ---------------------
+    path("reports/", reports.reports, name="reports"),
+    path("export/students.csv", reports.students_csv, name="export-students-csv"),
+    path("export/students.json", reports.students_json, name="export-students-json"),
 ]

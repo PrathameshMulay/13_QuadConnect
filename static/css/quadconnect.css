@@ -435,6 +435,10 @@ th {
   font-weight: 650;
 }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tfoot th, tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 650; }
+
+/* Reports: the one-line totals above the tables. */
+p.totals { margin: 0 0 20px; }
 
 /* --- Charts -------------------------------------------------------------- */
 figure.chart { margin: 0; }

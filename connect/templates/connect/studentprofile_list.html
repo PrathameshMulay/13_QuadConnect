@@ -20,6 +20,9 @@ project demonstrates both conventions.
     {% else %}
       {{ total_count }} in total.
     {% endif %}
+    Download the full list as
+    <a href="{% url 'connect:export-students-csv' %}" download>CSV</a> or
+    <a href="{% url 'connect:export-students-json' %}" download>JSON</a>.
   </p>
 {% endblock %}
 

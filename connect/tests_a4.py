@@ -7,6 +7,7 @@ These run on the real seed data (seed_demo_data), because the charts,
 reports and exports are about the dataset the deployed site serves.
 """
 
+import csv
 import json
 from datetime import date, timedelta
 from io import StringIO
@@ -19,10 +20,12 @@ from django.core.management import call_command
 from django.db.models import Count
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from .icebreakers import TRIVIA_URL, common_ground
 from .management.commands.seed_demo_data import HISTORY, STAFF_PASSWORD
 from .models import (
+    CampusLocation,
     ExperienceFeedback,
     Match,
     MatchParticipant,
@@ -30,6 +33,7 @@ from .models import (
     ProfileInterest,
     StudentProfile,
 )
+from .reports import FIELDS
 from .vega_charts import load_spec
 
 
@@ -210,8 +214,8 @@ QUESTION = {"type": "multiple", "difficulty": "easy", "category": "Sports",
 
 
 def flat(response):
-    """The page's text with runs of whitespace collapsed to single spaces."""
-    return " ".join(response.content.decode().split())
+    """The page's text without tags, whitespace runs collapsed to one space."""
+    return " ".join(strip_tags(response.content.decode()).split())
 
 
 class IcebreakerTests(SeededTestCase):
@@ -312,3 +316,101 @@ class IcebreakerTests(SeededTestCase):
         response = self.client.get(self.squad.get_absolute_url())
         self.assertContains(response, reverse("connect:match-icebreakers", args=[self.squad.pk]))
         self.assertEqual(self.client.get(reverse("connect:match-icebreakers", args=[999])).status_code, 404)
+
+
+# --- Part 3: CSV and JSON exports, and the reports page ----------------------------------
+
+
+STAMPED = r'^attachment; filename="students_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.{}"$'
+
+
+def empty_the_database():
+    # Matches first: they protect their venues and their participants' profiles.
+    Match.objects.all().delete()
+    StudentProfile.objects.all().delete()
+    CampusLocation.objects.all().delete()
+
+
+class ExportTests(SeededTestCase):
+
+    def csv_rows(self):
+        response = self.client.get(reverse("connect:export-students-csv"))
+        return list(csv.reader(StringIO(response.content.decode())))
+
+    def test_csv_is_a_dated_attachment_with_a_header_row(self):
+        response = self.client.get(reverse("connect:export-students-csv"))
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertRegex(response["Content-Disposition"], STAMPED.replace("{}", "csv"))
+        rows = self.csv_rows()
+        self.assertEqual(rows[0], FIELDS)
+        names = list(StudentProfile.objects.order_by("full_name", "net_id")
+                     .values_list("net_id", flat=True))
+        self.assertEqual([row[0] for row in rows[1:]], names)
+
+    def test_csv_row_matches_the_database(self):
+        row = dict(zip(FIELDS, next(r for r in self.csv_rows() if r[0] == "apatel22"), strict=True))
+        profile = StudentProfile.objects.get(net_id="apatel22")
+        self.assertEqual(row["full_name"], profile.full_name)
+        self.assertEqual(row["interests"], "; ".join(i.name for i in profile.interests.all()))
+        self.assertEqual(row["matches"], str(profile.match_participations.count()))
+
+    def test_json_has_metadata_and_the_same_rows(self):
+        response = self.client.get(reverse("connect:export-students-json"))
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertRegex(response["Content-Disposition"], STAMPED.replace("{}", "json"))
+        self.assertTrue(response.content.startswith(b'{\n  "generated_at": '))  # indent=2
+        data = response.json()
+        # One clock for both: the file name is generated_at to the minute.
+        stamp = data["generated_at"][:16].replace("T", "_").replace(":", "-")
+        self.assertIn(f"students_{stamp}.json", response["Content-Disposition"])
+        self.assertEqual(data["record_count"], StudentProfile.objects.count())
+        self.assertEqual([s["net_id"] for s in data["students"]],
+                         [row[0] for row in self.csv_rows()[1:]])
+        self.assertEqual(list(data["students"][0]), FIELDS)
+
+    def test_exports_leave_out_email(self):
+        for name in ["export-students-csv", "export-students-json"]:
+            body = self.client.get(reverse("connect:" + name)).content.decode()
+            for email in StudentProfile.objects.values_list("illinois_email", flat=True):
+                self.assertNotIn(email, body, name)
+
+    def test_csv_cells_cannot_run_as_formulas(self):
+        StudentProfile.objects.filter(net_id="apatel22").update(department='=HYPERLINK("x")')
+        row = next(r for r in self.csv_rows() if r[0] == "apatel22")
+        self.assertEqual(row[FIELDS.index("department")], '\'=HYPERLINK("x")')
+
+    def test_empty_database_still_has_the_header_row(self):
+        empty_the_database()
+        self.assertEqual(self.csv_rows(), [FIELDS])
+        data = self.client.get(reverse("connect:export-students-json")).json()
+        self.assertEqual((data["record_count"], data["students"]), (0, []))
+
+
+class ReportsTests(SeededTestCase):
+
+    def test_totals_line_and_grouped_summaries(self):
+        response = self.client.get(reverse("connect:reports"))
+        self.assertIn("Totals: 8 students, 19 matches (16 completed, 2 upcoming, 1 cancelled) "
+                      "and 55 participants across all matches.", flat(response))
+        self.assertContains(response, '<th scope="row">All colleges</th>')
+        self.assertContains(response, '<th scope="row">All venues</th>')
+        venues = response.context["venues"]
+        self.assertEqual(sum(v.total for v in venues), Match.objects.count())
+        self.assertEqual(sum(v.completed for v in venues),
+                         Match.objects.filter(status=MatchStatus.COMPLETED).count())
+
+    def test_download_buttons_and_links(self):
+        response = self.client.get(reverse("connect:reports"))
+        for name, label in [("export-students-csv", "Download CSV"),
+                            ("export-students-json", "Download JSON")]:
+            self.assertContains(response, f'href="{reverse("connect:" + name)}" download>{label}</a>')
+            self.assertContains(self.client.get(reverse("connect:student-list")),
+                                f'href="{reverse("connect:" + name)}" download>')
+        self.assertContains(response, 'aria-current="page">Reports</a>')
+
+    def test_empty_tables_say_so(self):
+        empty_the_database()
+        response = self.client.get(reverse("connect:reports"))
+        self.assertContains(response, "No students have joined yet.")
+        self.assertContains(response, "No venues have been added yet.")
+        self.assertNotContains(response, "<tfoot>")
