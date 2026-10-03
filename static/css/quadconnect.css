@@ -94,7 +94,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+[tabindex="0"]:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
@@ -275,7 +276,7 @@ ul.list, ol.list { list-style: none; margin: 0; padding: 0; }
 .grid-2 {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
 }
 
 .stat .n { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
@@ -418,6 +419,9 @@ ul.list, ol.list { list-style: none; margin: 0; padding: 0; }
 .message-info { background: var(--warn-soft); color: var(--warn); border-color: #f1d9a6; }
 
 /* --- Tables -------------------------------------------------------------- */
+/* A table wider than the screen scrolls inside its wrapper. Each wrapper
+   is a named region with tabindex="0", so the keyboard can scroll it
+   too (WCAG 2.1.1). */
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; background: var(--card); }
 caption { text-align: left; font-weight: 600; padding: 0 0 8px; }
@@ -513,6 +517,8 @@ footer.site a { color: var(--muted); }
   .hero h1 { font-size: 30px; }
   h1.page { font-size: 25px; }
   .row { flex-direction: column; }
+  /* A long "Matched on ..." line is wider than a 320 px screen (WCAG 1.4.10). */
+  .meta span { white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {
