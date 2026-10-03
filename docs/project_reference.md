@@ -237,7 +237,7 @@ the same models as a foundation.
     ├── icebreakers.py             (A4) Open Trivia DB questions for a match
     ├── reports.py                 (A4) /reports/ and the CSV/JSON exports
     ├── tests.py                   (A3) 45 tests, one class per A3 section
-    ├── tests_a4.py                (A4) 38 tests, one class per A4 part
+    ├── tests_a4.py                (A4) 42 tests, one class per A4 part
     ├── urls.py                    every route named, namespace "connect"
     ├── admin.py                   all 8 registered, with inlines
     ├── migrations/0001_initial.py
@@ -609,13 +609,23 @@ since a single-worker host would deadlock on a request to itself. A trivia
 topic needs at least two members behind it; otherwise it is General
 Knowledge. The exports leave out the email.
 
-**Gotchas for the next person:** §11 traps 20–22.
+**Gotchas for the next person:** §11 traps 20–22, and trap 7 again: the
+match list and the home page annotated a `Count` with no `order_by()`. It
+went unseen while ids matched date order; the seeded history broke that.
 
-**Verified:** 83 tests; ruff clean; `check --deploy` 0 issues; the whole CI
+**Audit:** three independent reviews (Django, security, WCAG 2.1 AA) before
+the push. Fixed: the match order above; vega-embed's menu and hover tooltips
+switched off (mouse-only downloads, tooltips that cannot be dismissed);
+scrolling tables made focusable regions; card grids fit 320 px;
+`/api/summary/` counts verified students and splits same-named interests;
+chart images cached a minute, trivia reused 5 s; a BOM on the CSV; CI
+rejects extra password hashes in the committed database.
+
+**Verified:** 87 tests; ruff clean; `check --deploy` 0 issues; the whole CI
 job on a clean checkout, including a production smoke test of 32 URLs; both
 specs run in the Vega-Lite editor against the local API; the Insights page
-logs nothing to the console; the chart menu has an accessible name; every
-page fits a 390 px phone screen.
+logs nothing to the console; every page fits 320 px without sideways
+scrolling.
 
 ### `main` — P1-A3 merged · 2026-09-28 · PR #6
 **Merged:** `feature/p1-a3` into `main` through PR #6, merged by Kritika

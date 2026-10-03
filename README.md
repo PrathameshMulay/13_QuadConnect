@@ -48,7 +48,7 @@ python manage.py runserver
 ```
 
 Open <http://127.0.0.1:8000/>. Run the test suite with
-`python manage.py test connect` (83 tests).
+`python manage.py test connect` (87 tests).
 
 The first command after installing pauses for a while (up to a minute on
 Windows) while Matplotlib builds its font cache. That happens once.
@@ -89,7 +89,7 @@ chart-ready JSON built from the models:
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/summary/` | students per interest, most picked first: `[{"category": "Food", "count": 4, "type": "Hobby / Interest"}, ...]` |
+| `GET /api/summary/` | verified students per interest, most picked first (a name used in two categories, like Food, gets its type added): `[{"category": "Food", "count": 4, "type": "Hobby / Interest"}, ...]` |
 | `GET /api/summary/matches-per-week/` | matches in each weekly cycle, oldest first: `{"records": [{"date": "2026-07-13", "count": 1, "participants": 2}, ...]}`; a week with no matches is listed with 0 |
 
 Every JSON endpoint sends `Access-Control-Allow-Origin: *`, so the Vega-Lite
@@ -107,25 +107,34 @@ inline data. Both run in the Vega-Lite editor against the local server
   draws them in the browser from self-hosted copies of Vega 6.4, Vega-Lite 6.4
   and vega-embed 7.3 ([`static/vendor/vega/`](static/vendor/vega/)). Each has
   a caption, alt text and a table of the same numbers. Without JavaScript the
-  server-drawn image shows instead.
+  server-drawn image shows instead. vega-embed's `...` menu and hover
+  tooltips are switched off: the menu's downloads work only with a mouse,
+  and the tooltips cannot be dismissed (WCAG 2.1.1 and 1.4.13). The PNG/JPG
+  link and the table under each chart give everyone the same.
 - **As images:** `/vega-lite/chart1.png` and `/vega-lite/chart2.jpg` (either
   chart works in either format) draw the same spec on the server with
   vl-convert ([`connect/vega_charts.py`](connect/vega_charts.py)). The view
   hands vl-convert the API's rows instead of letting it fetch `data.url`: a
   server that requests its own URL while answering can stall on a host with
-  one worker.
+  one worker. A render takes about a second, so each image is cached for a
+  minute.
 - **The spec:** `/vega-lite/chart1.vl.json` serves the spec with `data.url`
   made absolute for whichever host serves it, so it opens in the editor as it
   is, locally now and from the deployed site later.
 
-To open a chart in the editor, use **Open in Vega Editor** in the chart's `...`
-menu on the Insights page, or paste the JSON from `/vega-lite/chart1.vl.json`
+To open a chart in the editor, paste the JSON from `/vega-lite/chart1.vl.json`
 into <https://vega.github.io/editor/>. Chrome may ask before a public page
 reads from `127.0.0.1` ("local network access"); allow it, or use the
 deployed site.
 
+The files in `connect/specs/` use a relative `data.url`, so one spec works on
+every host. Pasted into the editor as they are, they would look for the data
+on vega.github.io. To submit or share a spec, download it from
+`/vega-lite/chart1.vl.json` (or `chart2.vl.json`) on the deployed site: that
+copy carries the deployed API's full address.
+
 Screenshots: [01](docs/screenshots/p1-a4/01_vega_bar_chart.png) bar chart on the site,
-[02](docs/screenshots/p1-a4/02_vega_line_chart.png) line chart with a tooltip,
+[02](docs/screenshots/p1-a4/02_vega_line_chart.png) line chart,
 [03](docs/screenshots/p1-a4/03_chart1_png.png) `chart1.png`, [04](docs/screenshots/p1-a4/04_chart2_jpg.png) `chart2.jpg`,
 [05](docs/screenshots/p1-a4/05_chart1_spec.png) the served spec,
 [06](docs/screenshots/p1-a4/06_vega_editor_bar.png) and [07](docs/screenshots/p1-a4/07_vega_editor_line.png) both specs
@@ -155,7 +164,9 @@ linked from every match page. Code:
 
 The response puts both sides together: the member counts per interest, the
 topic they picked and why, and the questions. Nothing from Open Trivia DB is
-stored, and members appear only as counts.
+saved: a topic's questions stay in memory for 5 seconds, Open Trivia DB's own
+limit, so a quick reload reuses them instead of being turned away. Members
+appear only as counts.
 
 | Situation | Status |
 |---|---|
@@ -181,7 +192,8 @@ Code: [`connect/reports.py`](connect/reports.py).
   `students_YYYY-MM-DD_HH-MM.csv` in local time. A header row, then one row
   per student profile ordered by name: NetID, name, college, department,
   matching preferences, interests, number of matches, verified, and sign-up
-  date. The email address is left out. A cell that starts like a formula
+  date. The email address is left out. The file starts with a UTF-8 byte
+  order mark, so Excel shows accented names correctly. A cell that starts like a formula
   (`=`, `+`, `-`, `@`) gets a leading apostrophe, so a spreadsheet shows it as
   text instead of running it.
 - **`/export/students.json`:** the same rows as
@@ -399,7 +411,10 @@ needs:
 3. Environment variables, in `.env` or the host's settings:
    `DJANGO_SECRET_KEY` (a new one), `DJANGO_SETTINGS_MODULE=quadconnect.settings.production`,
    `DJANGO_ALLOWED_HOSTS=<the site's domain>`, and `DJANGO_SECURE_SSL=1` once
-   the site is served over HTTPS.
+   the site is served over HTTPS. That flag also makes Django trust the host's
+   `X-Forwarded-Proto` header. Without it, Django thinks requests arrive over
+   `http`, so the chart specs would send an HTTPS page to `http://` data,
+   which browsers block.
 4. `python manage.py collectstatic --noinput`, then
    `python manage.py check --deploy`.
 5. The WSGI application `quadconnect.wsgi:application`, which defaults to the
@@ -437,8 +452,8 @@ runs, in order:
 2. `ruff check .` (rules in [`ruff.toml`](ruff.toml))
 3. `manage.py check`, and `makemigrations --check` (no model change without a migration)
 4. checks on the committed `db.sqlite3`: fully migrated, and seed data only
-   (no login sessions, no admin history, no unapproved venues, and the
-   `tester` login works)
+   (no login sessions, no admin history, no unapproved venues, no password
+   other than the two course accounts', and the `tester` login works)
 5. `verify_constraints`, then the test suite (`manage.py test connect`)
 6. `check --deploy` and `collectstatic` with production settings
 7. a smoke test that boots the production build and checks the status and
@@ -549,7 +564,7 @@ with `{% url 'connect:match-list' %}` rather than hard-coding paths.
     ├── icebreakers.py            Open Trivia DB questions for a match
     ├── reports.py                reports page, CSV and JSON exports
     ├── tests.py                  45 tests, one class per P1-A3 section
-    ├── tests_a4.py               38 tests, one class per P1-A4 part
+    ├── tests_a4.py               42 tests, one class per P1-A4 part
     ├── urls.py                   all routes named
     ├── admin.py                  all 8 models registered, with inlines
     ├── templates/connect/        base.html, shared entity_list.html, pages

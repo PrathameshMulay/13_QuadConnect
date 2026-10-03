@@ -51,8 +51,25 @@ Done, by assignment part:
       accounts. CI checks the committed database and the install size
       (318 MB on Linux).
 
+Audit: three independent reviews (Django, security, WCAG 2.1 AA). Fixed:
+  - /matches/ and the home page listed matches in id order: annotate()
+    drops Meta.ordering (trap 7 in project_reference), and the seeded
+    history gave ids out of date order. Both now order by date; a test
+    fails without it.
+  - Charts: vega-embed's menu (its downloads need a mouse; its button was
+    faint) and the hover tooltips (no way to dismiss them) are off. A chart
+    that fails to draw now says so to screen readers.
+  - Tables that scroll sideways on a 320 px screen are focusable regions,
+    so the keyboard can scroll them; card grids no longer overflow 320 px.
+  - /api/summary/ counts verified students only, and keeps same-named
+    interests (Food: hobby and activity) as separate bars.
+  - Chart images cached for a minute; Open Trivia DB questions reused for
+    5 seconds; the CSV starts with a BOM for Excel; vl-convert is imported
+    only where it is used; CI also rejects extra password hashes in the
+    committed database.
+
 Verified:
-  - 83 tests (45 from A3, 38 new), ruff clean, check --deploy 0 issues.
+  - 87 tests (45 from A3, 42 new), ruff clean, check --deploy 0 issues.
   - The whole CI job on a clean checkout: every step passed, including the
     smoke test of 32 URLs and the four hashed scripts on the Insights page.
   - 17 screenshots in docs/screenshots/p1-a4/, listed in its README.
@@ -800,8 +817,8 @@ Team-level observation
   On a host whose free plan sends all traffic through one shared proxy
   (PythonAnywhere does), other users' requests count too, so "busy" may
   come up more often than locally. The page then says so and keeps the
-  interests table; a short cache of the questions would be the fix if it
-  becomes a problem.
+  interests table. A topic's questions are reused for 5 seconds, which
+  covers a quick reload, but not two topics asked for within 5 seconds.
 - vl-convert starts its renderer with the first chart image a process
   draws. That took 3-4 seconds here, and twice took close to a minute on
   Windows with other heavy programs running. Later images take about one

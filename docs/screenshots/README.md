@@ -60,7 +60,7 @@ first lines.
 | File | Part | Shows |
 |---|---|---|
 | `01_vega_bar_chart.png` | 1.2 | Vega-Lite bar chart on the Insights page, data from `/api/summary/` |
-| `02_vega_line_chart.png` | 1.2 | Vega-Lite line chart, with the tooltip of one week |
+| `02_vega_line_chart.png` | 1.2 | Vega-Lite line chart, data from `/api/summary/matches-per-week/` |
 | `03_chart1_png.png` | 1.2 | `/vega-lite/chart1.png`, drawn on the server |
 | `04_chart2_jpg.png` | 1.2 | `/vega-lite/chart2.jpg`, drawn on the server |
 | `05_chart1_spec.png` | 1.2 | The spec as served: `data.url`, no inline data |
