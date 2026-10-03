@@ -75,7 +75,8 @@ jobs:
 
       - name: Committed database is migrated and holds seed data only
         # db.sqlite3 is committed and deployed as-is. A locally used copy
-        # would publish login sessions or leftover test venues.
+        # would publish login sessions, leftover test venues, or the
+        # password hash of someone's local superuser.
         run: |
           python manage.py migrate --check
           python manage.py shell -c "
@@ -89,6 +90,7 @@ jobs:
           if CampusLocation.objects.filter(is_approved=False).exists(): problems.append('unapproved venues')
           tester = User.objects.filter(username='tester', is_superuser=True).first()
           if not (tester and tester.check_password('uiuc12345')): problems.append('no working tester account')
+          if any(u.has_usable_password() for u in User.objects.exclude(username__in=['tester', 'mohitg2'])): problems.append('password hashes of other accounts')
           if problems: raise SystemExit('Committed db.sqlite3 has: ' + ', '.join(problems) + '. Rebuild it.')
           print('Committed db.sqlite3: migrated, seed data only, tester account works.')
           "
