@@ -1,10 +1,18 @@
 """
-Read-only JSON API (P1-A3 Section 6).
+Read-only JSON API (P1-A3 Section 6, extended in P1-A4).
 
-    GET /api/                 FBV   api_docs            HTML documentation
-    GET /api/locations/       CBV   LocationListAPI     JsonResponse
-    GET /api/matches/         FBV   match_list_api      JsonResponse
-    GET /api/locations.txt    FBV   location_list_text  HttpResponse, text/plain
+    GET /api/                           FBV  api_docs            HTML documentation
+    GET /api/locations/                 CBV  LocationListAPI     JsonResponse
+    GET /api/matches/                   FBV  match_list_api      JsonResponse
+    GET /api/locations.txt              FBV  location_list_text  HttpResponse, text/plain
+    GET /api/summary/                   FBV  summary_api         chart-ready list (A4)
+    GET /api/summary/matches-per-week/  FBV  matches_per_week_api  chart-ready records (A4)
+    GET /api/icebreakers/?match=<id>    FBV  (icebreakers.py)    Open Trivia DB (A4)
+
+The two /api/summary/ endpoints feed the Vega-Lite charts: flat rows, no
+wrapping metadata, so a spec can point data.url straight at them. Every
+JSON endpoint here allows any origin (CORS), because the data is public
+and read-only and the Vega-Lite editor loads it from another site.
 
 JsonResponse vs HttpResponse: JsonResponse serialises a dict with
 DjangoJSONEncoder (dates, datetimes and decimals included) and sets
@@ -19,18 +27,37 @@ feedback. Query parameters are validated with forms, and a bad value gets
 a 400 JSON error naming the parameter and how to fix it.
 """
 
+from collections import Counter
+from datetime import timedelta
+from functools import wraps
+
 from django import forms
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.timezone import localtime
 from django.views import View
 from django.views.decorators.http import require_GET
 
-from .models import CampusLocation, ConnectionType, Match, MatchStatus
+from .models import CampusLocation, ConnectionType, Interest, Match, MatchStatus
 
 JSON_PARAMS = {"indent": 2}  # readable in a browser; a few bytes per line
+
+
+def allow_any_origin(view):
+    """Let a page on any other site read this response (CORS).
+
+    Only for public, read-only data: it is what lets the Vega-Lite editor,
+    or a classmate's chart, load our API from their own page.
+    """
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        response = view(request, *args, **kwargs)
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
+    return wrapped
 
 
 # --- Query parameter validation ---------------------------------------------
@@ -114,6 +141,7 @@ def _location_json(request, venue):
     }
 
 
+@method_decorator(allow_any_origin, name="dispatch")
 class LocationListAPI(View):
     """GET /api/locations/ - approved venues as JSON (class-based).
 
@@ -133,6 +161,7 @@ class LocationListAPI(View):
         }, json_dumps_params=JSON_PARAMS)
 
 
+@allow_any_origin
 @require_GET
 def location_list_text(request):
     """GET /api/locations.txt - the same venues through plain HttpResponse.
@@ -173,6 +202,7 @@ def _match_json(request, match):
     }
 
 
+@allow_any_origin
 @require_GET
 def match_list_api(request):
     """GET /api/matches/ - the match schedule as JSON (function-based).
@@ -186,7 +216,7 @@ def match_list_api(request):
     data = filters.cleaned_data
     matches = (Match.objects.select_related("location", "suggested_activity")
                .annotate(participant_count=Count("participants"))
-               .order_by("-week_start", "-scheduled_for"))
+               .order_by("-week_start", "-scheduled_for", "-pk"))
     if data.get("week"):
         matches = matches.filter(week_start=data["week"])
     if data.get("type"):
@@ -199,6 +229,77 @@ def match_list_api(request):
         "filters": _used(data),
         "results": results,
     }, json_dumps_params=JSON_PARAMS)
+
+
+# --- Chart data (P1-A4) -----------------------------------------------------
+#
+# Plain functions first, views second: the Vega-Lite image endpoints call the
+# functions directly, so a server rendering a chart never has to make an
+# HTTP request back to itself.
+
+
+def interest_popularity():
+    """Verified students per interest, most picked first. Interests nobody
+    picked are left out. Two interests may share a name across categories
+    (Food is a hobby and a meeting activity); such a name gets its type
+    added, so each one keeps its own bar.
+
+    [{"category": "Food", "count": 4, "type": "Hobby / Interest"}, ...]
+    """
+    verified = Q(profile_links__profile__is_sso_verified=True)
+    interests = (Interest.objects.annotate(students=Count("profile_links", filter=verified))
+                 .filter(students__gt=0)
+                 .order_by("-students", "name"))
+    rows = [{"category": i.name, "count": i.students,
+             "type": i.get_category_display()} for i in interests]
+    names = Counter(r["category"] for r in rows)
+    for r in rows:
+        if names[r["category"]] > 1:
+            r["category"] = f"{r['category']} ({r['type']})"
+    return rows
+
+
+def matches_per_week():
+    """Matches scheduled per matching week, oldest first, as records.
+
+    Weeks with no matches between the first and the last are included with
+    a count of 0, so a line chart shows the gap instead of hiding it.
+
+    [{"date": "2026-07-13", "count": 1, "participants": 2}, ...]
+    """
+    rows = {r["week_start"]: r for r in
+            Match.objects.values("week_start")
+            .annotate(count=Count("id", distinct=True),
+                      participants=Count("participants"))}
+    if not rows:
+        return []
+    first, last = min(rows), max(rows)
+    grid = {first + timedelta(weeks=n) for n in range((last - first).days // 7 + 1)}
+    return [{"date": week.isoformat(),
+             "count": rows[week]["count"] if week in rows else 0,
+             "participants": rows[week]["participants"] if week in rows else 0}
+            for week in sorted(grid | set(rows))]
+
+
+@allow_any_origin
+@require_GET
+def summary_api(request):
+    """GET /api/summary/ - students per interest, for the bar chart.
+
+    A bare list of {"category", "count"} rows, the shape the assignment
+    shows, plus each interest's type for colour.
+    """
+    return JsonResponse(interest_popularity(), safe=False,
+                        json_dumps_params=JSON_PARAMS)
+
+
+@allow_any_origin
+@require_GET
+def matches_per_week_api(request):
+    """GET /api/summary/matches-per-week/ - matches per week, for the line
+    chart, as {"records": [{"date", "count", "participants"}, ...]}."""
+    return JsonResponse({"records": matches_per_week()},
+                        json_dumps_params=JSON_PARAMS)
 
 
 # --- Documentation ----------------------------------------------------------
@@ -216,6 +317,7 @@ def api_docs(request):
     locations = reverse("connect:api-locations")
     matches = reverse("connect:api-matches")
     text = reverse("connect:api-locations-text")
+    icebreakers = reverse("connect:api-icebreakers")
     return render(request, "connect/api_docs.html", {
         "sample": json_response.content.decode(),
         "json_type": json_response["Content-Type"],
@@ -230,5 +332,8 @@ def api_docs(request):
                         f"{matches}?status=COMPLETED",
                         f"{matches}?week=next-week"],
             "text": [text, f"{text}?setting=outdoor"],
+            "summary": [reverse("connect:api-summary"),
+                        reverse("connect:api-summary-matches-per-week")],
+            "icebreakers": [f"{icebreakers}?match=2", f"{icebreakers}?match=two"],
         },
     })

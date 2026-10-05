@@ -1,0 +1,91 @@
+{% extends "connect/base.html" %}
+{% comment %}
+Icebreakers for one match (P1-A4 Part 2). Built by connect/icebreakers.py:
+trivia from the Open Trivia Database on the topic that covers the most
+members, and the interests behind it. The same result is served as
+JSON at /api/icebreakers/?match=<id>. If Open Trivia DB fails, the page
+says why and still shows what the group has in common.
+{% endcomment %}
+
+{% block title %}Icebreakers for match {{ match.check_in_code }} - QuadConnect{% endblock %}
+
+{% block page_header %}
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="{% url 'connect:match-list' %}">Matches</a> /
+    <a href="{{ match.get_absolute_url }}">Match {{ match.check_in_code }}</a> /
+    <span aria-current="page">Icebreakers</span>
+  </nav>
+  <h1 class="page">Icebreakers</h1>
+  <p class="sub">
+    Trivia questions to get the conversation going, picked from what this
+    group has in common.
+  </p>
+{% endblock %}
+
+{% block content %}
+
+  <h2 class="section">{{ topic.category }} trivia</h2>
+  <p>
+    {% if topic.because %}
+      Picked because
+      {% if topic.members == members %}{% if members == 2 %}both{% else %}all {{ members }}{% endif %}
+      {% else %}{{ topic.members }} of the {{ members }}{% endif %}
+      members chose {{ topic.because|join:" or " }}.
+    {% else %}
+      No trivia topic matches an interest this group shares, so these are
+      general knowledge questions.
+    {% endif %}
+  </p>
+
+  {% if error %}
+    <p class="message message-info">
+      The questions could not be loaded. {{ error }} Reload the page in a few
+      seconds to try again.
+    </p>
+  {% else %}
+    <ol class="list">
+      {% for q in questions %}
+        <li class="card">
+          <p class="question">{{ forloop.counter }}. {{ q.question }}</p>
+          <ul class="choices">
+            {% for choice in q.choices %}<li>{{ choice }}</li>{% endfor %}
+          </ul>
+          <details class="data">
+            <summary>Show the answer<span class="visually-hidden"> to question {{ forloop.counter }}</span></summary>
+            <p>{{ q.answer }}</p>
+          </details>
+        </li>
+      {% endfor %}
+    </ol>
+    <p class="note">
+      Questions from the <a href="https://opentdb.com/">Open Trivia Database</a>,
+      licensed CC BY-SA 4.0. Reload the page for new ones.
+    </p>
+  {% endif %}
+
+  <h2 class="section">Interests in this group</h2>
+  <div class="card scroll" tabindex="0" role="region" aria-labelledby="icebreakers-table-1">
+    <table>
+      <caption class="visually-hidden" id="icebreakers-table-1">Interests picked by members of this group</caption>
+      <thead>
+        <tr>
+          <th scope="col">Interest</th>
+          <th scope="col" class="num">Members who picked it</th>
+          <th scope="col">Trivia topic</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in interests %}
+          <tr>
+            <td>{{ row.interest }}</td>
+            <td class="num">{{ row.members }}</td>
+            <td>{{ row.trivia_category|default:"None" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3">Nobody in this group has picked an interest yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% endblock %}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "title": {
+    "text": "Matches each week",
+    "subtitle": "Meetups scheduled in each weekly cycle",
+    "anchor": "start"
+  },
+  "description": "Line chart of how many matches were scheduled in each weekly cycle, from the summer pilot to the current week.",
+  "data": {
+    "url": "/api/summary/matches-per-week/",
+    "format": {"type": "json", "property": "records"}
+  },
+  "width": "container",
+  "height": 260,
+  "background": "white",
+  "mark": {
+    "type": "line",
+    "color": "#c0421c",
+    "strokeWidth": 2.5,
+    "point": {"filled": true, "size": 70, "color": "#c0421c"}
+  },
+  "encoding": {
+    "x": {
+      "field": "date",
+      "type": "ordinal",
+      "timeUnit": "utcyearmonthdate",
+      "title": "Week starting",
+      "axis": {"format": "%b %d", "labelAngle": 0}
+    },
+    "y": {
+      "field": "count",
+      "type": "quantitative",
+      "title": "Matches",
+      "scale": {"domainMin": 0},
+      "axis": {"tickMinStep": 1, "format": "d"}
+    },
+    "tooltip": [
+      {"field": "date", "type": "temporal", "timeUnit": "utcyearmonthdate", "title": "Week starting", "format": "%b %d, %Y"},
+      {"field": "count", "type": "quantitative", "title": "Matches"},
+      {"field": "participants", "type": "quantitative", "title": "Participants"}
+    ]
+  },
+  "config": {
+    "font": "Inter, Segoe UI, Arial, sans-serif",
+    "view": {"stroke": null},
+    "title": {"color": "#1f2933", "subtitleColor": "#666e7b", "fontSize": 15},
+    "axis": {"labelColor": "#1f2933", "titleColor": "#1f2933", "gridColor": "#e3e3e0", "domainColor": "#8a929e"}
+  }
+}

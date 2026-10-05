@@ -14,6 +14,7 @@ Blocks available to children:
       subtitle   optional line under the heading, inside page_header
     content      the page body (required)
     extra_css    optional per-page <link>/<style>
+    scripts      optional per-page <script> tags, at the end of <body>
 
 Navigation marks the current section with class="active". The list page
 itself gets aria-current="page"; its detail pages get aria-current="true",
@@ -50,13 +51,15 @@ because the link then points at the section, not at the page being shown.
       <a href="{% url 'connect:student-search' %}"
          {% if u == 'student-search' %}class="active" aria-current="page"{% endif %}>Search</a>
       <a href="{% url 'connect:match-list' %}"
-         {% if u == 'match-list' %}class="active" aria-current="page"{% elif u == 'match-detail' %}class="active" aria-current="true"{% endif %}>Matches</a>
+         {% if u == 'match-list' %}class="active" aria-current="page"{% elif u == 'match-detail' or u == 'match-icebreakers' %}class="active" aria-current="true"{% endif %}>Matches</a>
       <a href="{% url 'connect:location-list' %}"
          {% if u == 'location-list' %}class="active" aria-current="page"{% elif u == 'location-detail' %}class="active" aria-current="true"{% endif %}>Locations</a>
       <a href="{% url 'connect:feedback-summary' %}"
          {% if u == 'feedback-summary' %}class="active" aria-current="page"{% endif %}>Feedback</a>
       <a href="{% url 'connect:insights' %}"
          {% if u == 'insights' %}class="active" aria-current="page"{% endif %}>Insights</a>
+      <a href="{% url 'connect:reports' %}"
+         {% if u == 'reports' %}class="active" aria-current="page"{% endif %}>Reports</a>
       <a href="{% url 'connect:api-docs' %}"
          {% if u == 'api-docs' %}class="active" aria-current="page"{% endif %}>API</a>
     </nav>
@@ -90,5 +93,6 @@ because the link then points at the section, not at the page being shown.
   <a href="{% url 'admin:index' %}">Admin</a>
 </footer>
 
+{% block scripts %}{% endblock %}
 </body>
 </html>

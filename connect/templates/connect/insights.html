@@ -1,4 +1,5 @@
 {% extends "connect/base.html" %}
+{% load static %}
 {% comment %}
 Insights (P1-A3 Section 4). Each <img> points at a view that draws the
 chart with Matplotlib and returns image/png. The alt text, caption and
@@ -40,9 +41,9 @@ table are built from the same ORM rows as the image, so they always agree.
       </figure>
       <details class="data">
         <summary>Numbers behind Figure 1</summary>
-        <div class="scroll">
+        <div class="scroll" tabindex="0" role="region" aria-labelledby="insights-table-1">
           <table>
-            <caption class="visually-hidden">Students per college by preferred connection</caption>
+            <caption class="visually-hidden" id="insights-table-1">Students per college by preferred connection</caption>
             <thead>
               <tr>
                 <th scope="col">College</th>
@@ -81,9 +82,9 @@ table are built from the same ORM rows as the image, so they always agree.
       </figure>
       <details class="data">
         <summary>Numbers behind Figure 2</summary>
-        <div class="scroll">
+        <div class="scroll" tabindex="0" role="region" aria-labelledby="insights-table-2">
           <table>
-            <caption class="visually-hidden">Interest selections by category</caption>
+            <caption class="visually-hidden" id="insights-table-2">Interest selections by category</caption>
             <thead>
               <tr>
                 <th scope="col">Category</th>
@@ -103,6 +104,90 @@ table are built from the same ORM rows as the image, so they always agree.
       </details>
     </section>
 
+    {# Figures 3-4: Vega-Lite, drawn in the browser by static/js/charts.js from #}
+    {# the spec at data-vega-spec, whose data.url is /api/summary/.... Without   #}
+    {# JavaScript the <noscript> image (rendered on the server) shows instead.   #}
+    <section class="card" aria-labelledby="fig3-title">
+      <h2 class="card-title" id="fig3-title">What students pick most</h2>
+      <figure class="chart">
+        <div class="vega-chart" data-vega-spec="{% url 'connect:vega-spec' 'chart1' %}"></div>
+        <noscript>
+          <img src="{% url 'connect:vega-image' 'chart1' 'png' %}" alt="{{ interests_alt }}" width="1280">
+        </noscript>
+        <figcaption>
+          Figure 3. Verified students who picked each interest or student
+          organization.
+          <a href="{% url 'connect:vega-image' 'chart1' 'png' %}" download>Download as PNG<span class="visually-hidden"> (Figure 3)</span></a>
+        </figcaption>
+      </figure>
+      <details class="data">
+        <summary>Numbers behind Figure 3</summary>
+        <div class="scroll" tabindex="0" role="region" aria-labelledby="insights-table-3">
+          <table>
+            <caption class="visually-hidden" id="insights-table-3">Students per interest</caption>
+            <thead>
+              <tr>
+                <th scope="col">Interest</th>
+                <th scope="col">Type</th>
+                <th scope="col" class="num">Students</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in interests %}
+                <tr><td>{{ row.category }}</td><td>{{ row.type }}</td><td class="num">{{ row.count }}</td></tr>
+              {% empty %}
+                <tr><td colspan="3">Nobody has picked an interest yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="fig4-title">
+      <h2 class="card-title" id="fig4-title">How the weekly cycle is growing</h2>
+      <figure class="chart">
+        <div class="vega-chart" data-vega-spec="{% url 'connect:vega-spec' 'chart2' %}"></div>
+        <noscript>
+          <img src="{% url 'connect:vega-image' 'chart2' 'jpg' %}" alt="{{ weeks_alt }}" width="1280">
+        </noscript>
+        <figcaption>
+          Figure 4. Meetups scheduled in each weekly matching cycle, from the
+          summer pilot to this week.
+          <a href="{% url 'connect:vega-image' 'chart2' 'jpg' %}" download>Download as JPG<span class="visually-hidden"> (Figure 4)</span></a>
+        </figcaption>
+      </figure>
+      <details class="data">
+        <summary>Numbers behind Figure 4</summary>
+        <div class="scroll" tabindex="0" role="region" aria-labelledby="insights-table-4">
+          <table>
+            <caption class="visually-hidden" id="insights-table-4">Matches and participants per week</caption>
+            <thead>
+              <tr>
+                <th scope="col">Week starting</th>
+                <th scope="col" class="num">Matches</th>
+                <th scope="col" class="num">Participants</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in weeks %}
+                <tr><td>{{ row.date }}</td><td class="num">{{ row.count }}</td><td class="num">{{ row.participants }}</td></tr>
+              {% empty %}
+                <tr><td colspan="3">No matches have been scheduled yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
   </div>
 
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/vega/vega.min.js' %}" defer></script>
+  <script src="{% static 'vendor/vega/vega-lite.min.js' %}" defer></script>
+  <script src="{% static 'vendor/vega/vega-embed.min.js' %}" defer></script>
+  <script src="{% static 'js/charts.js' %}" defer></script>
 {% endblock %}

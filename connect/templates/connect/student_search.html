@@ -145,9 +145,9 @@ Every loop has an {% empty %} branch.
   </div>
 
   <div class="grid-2 gap-top">
-    <div class="card scroll">
+    <div class="card scroll" tabindex="0" role="region" aria-labelledby="student-search-table-1">
       <table>
-        <caption>Students per college</caption>
+        <caption id="student-search-table-1">Students per college</caption>
         <thead><tr><th scope="col">College</th><th scope="col" class="num">Students</th></tr></thead>
         <tbody>
           {% for row in by_college %}
@@ -158,9 +158,9 @@ Every loop has an {% empty %} branch.
         </tbody>
       </table>
     </div>
-    <div class="card scroll">
+    <div class="card scroll" tabindex="0" role="region" aria-labelledby="student-search-table-2">
       <table>
-        <caption>Most shared interests</caption>
+        <caption id="student-search-table-2">Most shared interests</caption>
         <thead><tr><th scope="col">Interest</th><th scope="col">Category</th><th scope="col" class="num">Students</th></tr></thead>
         <tbody>
           {% for interest in top_interests %}

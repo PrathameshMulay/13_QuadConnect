@@ -1,0 +1,121 @@
+{% extends "connect/base.html" %}
+{% comment %}
+Reports (P1-A4 Part 3): two grouped summaries with a totals row each, a
+totals line for the whole site, and the student downloads. Built by
+connect/reports.py, which also serves the CSV and JSON files.
+{% endcomment %}
+
+{% block title %}Reports - QuadConnect{% endblock %}
+{% block heading %}Reports{% endblock %}
+
+{% block subtitle %}
+  <p class="sub">
+    Who has joined QuadConnect and where the groups meet, counted from the
+    live data.
+  </p>
+{% endblock %}
+
+{% block content %}
+
+  <p class="totals">
+    <strong>Totals:</strong>
+    {{ totals.students }} student{{ totals.students|pluralize }},
+    {{ totals.matches.total }} match{{ totals.matches.total|pluralize:"es" }}
+    ({{ totals.matches.completed }} completed, {{ totals.matches.upcoming }} upcoming,
+    {{ totals.matches.cancelled }} cancelled) and
+    {{ totals.participants }} participant{{ totals.participants|pluralize }} across all matches.
+  </p>
+
+  <section class="card" aria-labelledby="download-title">
+    <h2 class="card-title" id="download-title">Download the student list</h2>
+    <p>
+      Every student profile, sorted by name, with their matching preferences,
+      interests and number of matches. Email addresses are not included.
+    </p>
+    <p class="actions">
+      <a class="btn btn-primary" href="{% url 'connect:export-students-csv' %}" download>Download CSV</a>
+      <a class="btn btn-secondary" href="{% url 'connect:export-students-json' %}" download>Download JSON</a>
+    </p>
+  </section>
+
+  <h2 class="section">Students per college</h2>
+  <div class="card scroll" tabindex="0" role="region" aria-labelledby="reports-table-1">
+    <table>
+      <caption class="visually-hidden" id="reports-table-1">Students per college, by preferred connection type</caption>
+      <thead>
+        <tr>
+          <th scope="col">College</th>
+          <th scope="col" class="num">Friend</th>
+          <th scope="col" class="num">Squad</th>
+          <th scope="col" class="num">Students</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for college, friend, squad, students in colleges %}
+          <tr>
+            <td>{{ college }}</td>
+            <td class="num">{{ friend }}</td>
+            <td class="num">{{ squad }}</td>
+            <td class="num">{{ students }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">No students have joined yet.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if colleges %}
+        <tfoot>
+          <tr>
+            <th scope="row">All colleges</th>
+            <td class="num">{{ totals.friend }}</td>
+            <td class="num">{{ totals.squad }}</td>
+            <td class="num">{{ totals.students }}</td>
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  <h2 class="section">Matches per venue</h2>
+  <div class="card scroll" tabindex="0" role="region" aria-labelledby="reports-table-2">
+    <table>
+      <caption class="visually-hidden" id="reports-table-2">Matches per venue: all, completed and upcoming</caption>
+      <thead>
+        <tr>
+          <th scope="col">Venue</th>
+          <th scope="col" class="num">All matches</th>
+          <th scope="col" class="num">Completed</th>
+          <th scope="col" class="num">Upcoming</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for venue in venues %}
+          <tr>
+            <td>
+              {% if venue.is_approved %}
+                <a href="{{ venue.get_absolute_url }}">{{ venue.name }}</a>
+              {% else %}
+                {{ venue.name }}
+              {% endif %}
+            </td>
+            <td class="num">{{ venue.total }}</td>
+            <td class="num">{{ venue.completed }}</td>
+            <td class="num">{{ venue.upcoming }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">No venues have been added yet.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if venues %}
+        <tfoot>
+          <tr>
+            <th scope="row">All venues</th>
+            <td class="num">{{ totals.matches.total }}</td>
+            <td class="num">{{ totals.matches.completed }}</td>
+            <td class="num">{{ totals.matches.upcoming }}</td>
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+{% endblock %}

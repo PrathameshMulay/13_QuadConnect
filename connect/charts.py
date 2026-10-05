@@ -29,6 +29,7 @@ from matplotlib import patheffects
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
 
+from .api import interest_popularity, matches_per_week
 from .models import ConnectionType, InterestCategory, ProfileInterest, StudentProfile
 
 INK = "#1f2933"
@@ -210,15 +211,44 @@ def _category_alt(rows):
     return f"Pie chart of {total} interest selections by category. {parts}."
 
 
+def _interests_alt(rows):
+    if not rows:
+        return "Bar chart of interests by number of students. Nobody has picked an interest yet."
+    top = rows[0]
+    return (f"Bar chart of {len(rows)} interests by how many verified students picked "
+            f"them. Most picked: {top['category']}, by {top['count']} students. "
+            f"Every number is in the table below.")
+
+
+def _weeks_alt(rows):
+    if not rows:
+        return "Line chart of matches per week. No matches have been scheduled yet."
+    counts = [r["count"] for r in rows]
+    return (f"Line chart of matches scheduled each week from {rows[0]['date']} to "
+            f"{rows[-1]['date']}: between {min(counts)} and {max(counts)} matches a "
+            f"week, {sum(counts)} in all. Every number is in the table below.")
+
+
 def insights(request):
-    """The Insights page: both charts, each with caption, alt text and table."""
+    """The Insights page: four charts, each with caption, alt text and table.
+
+    Figures 1-2 are Matplotlib images (P1-A3). Figures 3-4 are Vega-Lite
+    charts drawn in the browser from /api/summary/ (P1-A4); the rows here
+    feed their data tables and the image shown without JavaScript.
+    """
     colleges = students_by_college_data()
     categories = selections_by_category_data()
     total = sum(n for _, _, n in categories)
+    interests = interest_popularity()
+    weeks = matches_per_week()
     return render(request, "connect/insights.html", {
         "colleges": colleges,
         "categories": [(label, n, round(n * 100 / total))
                        for _, label, n in categories],
         "college_alt": _college_alt(colleges),
         "category_alt": _category_alt(categories),
+        "interests": interests,
+        "weeks": weeks,
+        "interests_alt": _interests_alt(interests),
+        "weeks_alt": _weeks_alt(weeks),
     })

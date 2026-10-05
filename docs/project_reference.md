@@ -25,19 +25,22 @@ what we chose not to build, and where the shortcuts are.
 | | |
 |---|---|
 | **Repo** | `13_QuadConnect` |
-| **Assignment in flight** | **P1-A3** — URLs, ORM, static files, charts, forms, API (60 pts) — built by Manojkumar alone on `feature/p1-a3`, **merged into `main` on 2026-09-28 (PR #6)** |
-| **Last completed** | P1-A2 — Fullstack Development + GitHub Secrets (30 pts) — submitted |
-| **`main` status** | Has P1-A2 and P1-A3. PR #6's merge commit `0c69793` is byte-identical to the CI-verified `cb85d4c`. |
-| **What remains** | Submit the repository URL on Canvas for P1-A3 (due Mon 2026-09-28, 23:59). |
+| **Assignment in flight** | **P1-A4** — APIs, Vega-Lite charts, exports, static files, initial deployment (40 pts) — built by Manojkumar on `feature/p1-a4`, deployed at <https://manojkmohan43.pythonanywhere.com/>, due Mon 2026-10-05, 23:59 |
+| **Last completed** | P1-A3 — URLs, ORM, static files, charts, forms, API (60 pts) — merged into `main` (PR #6, wording fix PR #8) |
+| **`main` status** | Has P1-A2 and P1-A3 (`6ccd9d1`, PR #8). `feature/p1-a4` was cut from it. |
+| **What remains** | Merge `feature/p1-a4` into `main` through a PR (planned for 2026-10-05), point the PythonAnywhere copy at `main`, and submit on Canvas: the repository link, the site link and the PythonAnywhere username `manojkmohan43`. |
 
 `main` ships P1-A2 (split settings, `.env` handling, `base.html`, the shared
 list template, a home dashboard and the four graded views) and, since PR #6,
 everything in §9's P1-A3 entry: detail pages, search, static files with cache
 busting, Matplotlib charts, a POST form on a CBV, a JSON API, and a 45-test
-suite. It also has CI: every push to `feature/p1-a3` runs one check,
-**Deploy / test (push)** (`.github/workflows/deploy.yml`), with every CI step
-inside that one job. It runs on no other branch: code reaches `main` only
-through a PR whose head has passed it.
+suite. `feature/p1-a4` adds everything in §9's P1-A4 entry: chart-ready
+API endpoints, two Vega-Lite charts (in the page and as PNG/JPG), Open Trivia
+DB icebreakers, CSV/JSON exports with a reports page, and the committed seed
+database. CI: every push to `feature/p1-a4` runs one check, **Deploy / test
+(push)** (`.github/workflows/deploy.yml`), with every CI step inside that one
+job. It runs on no other branch: code reaches `main` only through a PR whose
+head has passed it.
 
 ### Status board — UPDATE YOUR ROW WHEN YOU FINISH
 
@@ -48,6 +51,7 @@ through a PR whose head has passed it.
 | Prathamesh Mulay | `feature/location-views` | Base CBV | `/locations/` | ✅ DONE — `CampusLocationListView` base CBV with setting + seats filters, reuses the shared list template |
 | Dhruv Thaker | `feature/feedback-views` | FBV `HttpResponse` | `/feedback/summary/` | ✅ DONE — aggregate feedback summary with rating distribution, enjoyment metrics, and connection preferences |
 | Manojkumar Mohankumar (P1-A3, solo) | `feature/p1-a3` | all six A3 sections | `/search/`, `/matches/<pk>/`, `/locations/<pk>/`, `/insights/`, `/api/` | ✅ DONE — merged to `main` in PR #6 (2026-09-28); see §9 |
+| Manojkumar Mohankumar (P1-A4) | `feature/p1-a4` | all four A4 parts | `/api/summary/`, `/vega-lite/...`, `/api/icebreakers/`, `/reports/`, `/export/...` | DONE — deployed at <https://manojkmohan43.pythonanywhere.com/>; merge to `main` pending; see §9 |
 
 **Whoever completes a branch:** updating this file is
 **Step 7 of that developer's build task** and a box on their Done
@@ -199,10 +203,10 @@ the same models as a foundation.
 ├── .gitignore                     .env on line 1
 ├── .env                           IGNORED — never committed
 ├── .env.example                   committed, placeholders only
-├── requirements.txt               Django 5.2.17, python-dotenv, whitenoise, matplotlib
+├── requirements.txt               pip freeze, 23 pins (A4): Django, whitenoise, matplotlib, requests, vl-convert-python, ...
 ├── manage.py                      -> quadconnect.settings.development
-├── db.sqlite3                     IGNORED — rebuild with seed_demo_data
-├── static/                        (A3) css/quadconnect.css, img/logo.svg, fonts/
+├── db.sqlite3                     COMMITTED since A4 — seed data only
+├── static/                        (A3) css/quadconnect.css, img/logo.svg, fonts/; (A4) js/charts.js, vendor/vega/
 ├── staticfiles/                   IGNORED — collectstatic output (production)
 ├── docs/
 │   ├── wireframes/
@@ -212,7 +216,7 @@ the same models as a foundation.
 │   ├── branching_strategy/        diagram.png + branching.md
 │   ├── notes/notes.txt            weekly log, VIEW REGISTER, REFLECTION
 │   ├── build_tasks/               one spec per developer + shared rules
-│   ├── screenshots/               README.md manifest, A2 captures, p1-a3/ (19)
+│   ├── screenshots/               README.md manifest, A2 captures, p1-a3/ (19), p1-a4/ (17)
 │   ├── er_diagram.pdf
 │   └── data_model_notes.md        why each model and on_delete exists
 ├── quadconnect/
@@ -227,15 +231,20 @@ the same models as a foundation.
     ├── views.py                   one section per owner, plus A3 sections
     ├── forms.py                   (A3) search, NetID lookup, venue suggestion
     ├── charts.py                  (A3) Matplotlib charts + Insights page
-    ├── api.py                     (A3) JSON API + docs page
+    ├── api.py                     (A3) JSON API + docs page; (A4) /api/summary/...
+    ├── vega_charts.py             (A4) Vega-Lite spec + PNG/JPG endpoints
+    ├── specs/                     (A4) chart1_bar.vl.json, chart2_line.vl.json
+    ├── icebreakers.py             (A4) Open Trivia DB questions for a match
+    ├── reports.py                 (A4) /reports/ and the CSV/JSON exports
     ├── tests.py                   (A3) 45 tests, one class per A3 section
+    ├── tests_a4.py                (A4) 42 tests, one class per A4 part
     ├── urls.py                    every route named, namespace "connect"
     ├── admin.py                   all 8 registered, with inlines
     ├── migrations/0001_initial.py
     ├── templates/connect/
     │   ├── base.html              site shell; A3 moved its CSS to static/
     │   ├── entity_list.html       SHARED — model-agnostic list
-    │   └── home.html, *_detail.html, student_search.html, insights.html, api_docs.html, ...
+    │   └── home.html, *_detail.html, student_search.html, insights.html, api_docs.html, icebreakers.html, reports.html, ...
     └── management/commands/
         ├── seed_demo_data.py      idempotent
         └── verify_constraints.py  11 checks, all rolled back
@@ -471,6 +480,10 @@ yours.
 | `/locations/<pk>/` | `connect:location-detail` | Generic CBV | A3 | `campuslocation_detail.html` (default naming) |
 | `/insights/` + two `.png` | `connect:insights`, `connect:chart-*` | FBV, `image/png` | A3 | `insights.html` |
 | `/api/`, `/api/locations/`, `/api/matches/`, `/api/locations.txt` | `connect:api-*` | CBV + FBV, `JsonResponse` / `HttpResponse` | A3 | `api_docs.html` for `/api/` |
+| `/api/summary/`, `/api/summary/matches-per-week/` | `connect:api-summary*` | FBV, `JsonResponse`, CORS `*` | A4 | — |
+| `/vega-lite/<chart>.vl.json`, `.png`, `.jpg` | `connect:vega-spec`, `connect:vega-image` | FBV, JSON / image | A4 | — |
+| `/api/icebreakers/?match=<id>`, `/matches/<pk>/icebreakers/` | `connect:api-icebreakers`, `connect:match-icebreakers` | FBV, calls Open Trivia DB | A4 | `icebreakers.html` |
+| `/reports/`, `/export/students.csv`, `/export/students.json` | `connect:reports`, `connect:export-students-*` | FBV, `render()` / attachments | A4 | `reports.html` |
 
 `/locations/` also gained `post()` in A3 (venue suggestions). Everything is
 namespaced: `{% url 'connect:match-list' %}`. Links to a single record always
@@ -493,7 +506,8 @@ go through `get_absolute_url()` (`StudentProfile`, `Match`, `CampusLocation`).
   keeps `DEBUG=False` rendering. No `style=""` attributes in templates except
   the data-driven width of the rating bars. `base.html` also gained
   `{% block page_header %}` (home replaces it with the hero) and a flash
-  message region.
+  message region. A4 added `{% block scripts %}` at the end of `<body>`
+  (Insights loads the Vega scripts there) and a ninth nav link, Reports.
 
 ---
 
@@ -521,11 +535,15 @@ The assignment contradicted itself; both exist.
 
 ### Seeded data
 
-8 profiles across 5 colleges · 28 interests (12 hobby, 10 RSO, 6 activity) ·
+8 profiles across 6 colleges · 28 interests (12 hobby, 10 RSO, 6 activity) ·
 41 interest selections · 16 availability slots · 4 campus locations (Illini
-Union, Grainger Library, Main Quad, Espresso Royale) · 3 matches
+Union, Grainger Library, Main Quad, Espresso Royale) · 19 matches over nine
+weeks (2026-07-13 to 2026-09-07): the original three keep ids 1–3
 (`QC-4827` Friend/PROPOSED, `QC-5193` Squad/CONFIRMED with check-ins,
-`QC-3312` Friend/COMPLETED) · 9 participants · 2 feedback rows.
+`QC-3312` Friend/COMPLETED), and A4 added 16 past ones (`QC-1301`–`QC-1316`,
+one cancelled) for the matches-per-week chart · 55 participants · 33 feedback
+rows · staff `tester` and `mohitg2`. Sign-up dates are fixed, so reseeding
+changes nothing.
 
 ### `verify_constraints` — 11 checks
 
@@ -559,6 +577,56 @@ adds a short merge entry of their own recording anything that only became
 visible when the branches came together — conflicts hit, behaviour that broke
 on integration, decisions reversed. That merge entry is the part that is
 easiest to skip and most valuable later.
+
+### BUILT `feature/p1-a4` - Manojkumar Mohankumar - 2026-10-02
+**Shipped:** all four P1-A4 parts on one branch cut from `main` at `6ccd9d1`.
+Part 1: `/api/summary/` and `/api/summary/matches-per-week/`, and two
+Vega-Lite specs that load them through `data.url`, drawn on `/insights/` and
+rendered at `/vega-lite/chart1.png` and `/vega-lite/chart2.jpg`. Part 2:
+Open Trivia DB icebreakers for each match (`/api/icebreakers/?match=<id>` and
+a page). Part 3: student CSV/JSON exports and `/reports/`. Part 4: frozen
+requirements, the committed seed database, the install-size check.
+Deployed on 2026-10-04 to PythonAnywhere's free plan (user `manojkmohan43`,
+teacher `mohitg27`): <https://manojkmohan43.pythonanywhere.com/>.
+
+**Files added:** `connect/vega_charts.py`, `connect/specs/` (2 specs),
+`connect/icebreakers.py`, `connect/reports.py`, `connect/tests_a4.py`,
+templates `icebreakers.html` and `reports.html`, `static/js/charts.js`,
+`static/vendor/vega/` (Vega 6.4.0, Vega-Lite 6.4.3, vega-embed 7.3.0 + BSD
+licences), `db.sqlite3`, `docs/screenshots/p1-a4/` (17).
+
+**Files changed:** `requirements.txt` (pip freeze, 23 pins); `.gitignore`
+(`db.sqlite3` no longer ignored); `seed_demo_data.py` (16 past matches,
+fixed dates, staff accounts); `api.py` (summary endpoints, CORS, docs
+examples); `charts.py` and `insights.html` (Figures 3–4); `match_detail.html`
+(icebreakers button); `base.html` (Reports link, `scripts` block);
+`studentprofile_list.html` (download links); `api_docs.html`; `urls.py`
+(9 routes); the CSS; the CI workflow (DB check, size check, A4 smoke test);
+README, notes.txt, this file.
+
+**Decisions that differ from the plan:** the chart images are drawn with
+the API's rows handed to vl-convert, not by letting it fetch `data.url`,
+since a single-worker host would deadlock on a request to itself. A trivia
+topic needs at least two members behind it; otherwise it is General
+Knowledge. The exports leave out the email.
+
+**Gotchas for the next person:** §11 traps 20–22, and trap 7 again: the
+match list and the home page annotated a `Count` with no `order_by()`. It
+went unseen while ids matched date order; the seeded history broke that.
+
+**Audit:** three independent reviews (Django, security, WCAG 2.1 AA) before
+the push. Fixed: the match order above; vega-embed's menu and hover tooltips
+switched off (mouse-only downloads, tooltips that cannot be dismissed);
+scrolling tables made focusable regions; card grids fit 320 px;
+`/api/summary/` counts verified students and splits same-named interests;
+chart images cached a minute, trivia reused 5 s; a BOM on the CSV; CI
+rejects extra password hashes in the committed database.
+
+**Verified:** 87 tests; ruff clean; `check --deploy` 0 issues; the whole CI
+job on a clean checkout, including a production smoke test of 32 URLs; both
+specs run in the Vega-Lite editor against the local API; the Insights page
+logs nothing to the console; every page fits 320 px without sideways
+scrolling.
 
 ### `main` — P1-A3 merged · 2026-09-28 · PR #6
 **Merged:** `feature/p1-a3` into `main` through PR #6, merged by Kritika
@@ -837,8 +905,10 @@ empty state renders (forced in a rolled-back transaction).
    inline for that reason. A3 moved it to `static/` and added WhiteNoise in the
    same change. Production now needs `collectstatic --noinput` first, or every
    `{% static %}` raises (the manifest does not exist yet).
-4. **`db.sqlite3` is gitignored.** Never `git add -f` it — a tracked binary
-   conflicts on every branch. Re-run `seed_demo_data` instead.
+4. **`db.sqlite3` is committed (since A4), and must hold only seed data.**
+   Logging in to the admin locally writes a session row; committing that
+   would publish a working session key. Rebuild it instead: delete the
+   file, `migrate`, `seed_demo_data`. CI fails if it holds sessions.
 5. **`UniqueConstraint` cannot span relations** (see §6).
 6. **`private_note` is private.** Never render it, and never show per-student
    ratings. Aggregate only.
@@ -888,6 +958,23 @@ empty state renders (forced in a rolled-back transaction).
    into CRLF, so a patch piped to `git apply` stops matching; pass bytes.
    Bash heredocs can eat backslashes in inline Python (this entry lost its
    own escape examples that way); write the script to a file instead.
+20. **Vega-Lite warns "Dropping fit-y because spec has discrete height"** for
+   `"width": "container"` with a step height (`{"step": 20}`), even though
+   nothing is dropped. The bar chart uses a fixed height to keep the
+   console and the editor's log clean.
+21. **Open Trivia DB answers a second request within 5 seconds with HTTP 429**
+   (`response_code` 5), per IP address. `raise_for_status()` turns it into
+   an `HTTPError`; the code maps it to 503 with `Retry-After`. Tests mock
+   `requests.get`; a manual check needs a 5-second gap between calls.
+22. **vl-convert starts its renderer on the first image** a process draws:
+   a few seconds, rarely much longer on a busy Windows machine. The
+   `--noreload` dev server also caches templates, so restart it after
+   editing one.
+23. **PythonAnywhere from Windows:** a console created through the API only
+   starts once it is opened in a browser. Git Bash rewrites `/home/...`
+   arguments into Windows paths (set `MSYS_NO_PATHCONV=1`). And the live
+   `db.sqlite3` on the server is `--skip-worktree`, so `git pull` works
+   while the site writes to it.
 
 ---
 
@@ -911,6 +998,14 @@ verified (§9). Merged into `main` on 2026-09-28 through PR #6. Submission is
 one item, the public repository URL, due Mon 2026-09-28 at 23:59. The
 notes.txt answers the assignment asks for are in its section 2; screenshots
 in `docs/screenshots/p1-a3/`.
+
+### P1-A4 — APIs, Vega-Lite charts, exports, static files, deployment (40 pts) — deployed, merge pending
+Built by Manojkumar on `feature/p1-a4` (§9). Due Mon 2026-10-05 at 23:59.
+Submission: the Vega-Lite specs (`connect/specs/`) and screenshots of the
+working charts (`docs/screenshots/p1-a4/`), in the repository. Deployed to
+PythonAnywhere on 2026-10-04: <https://manojkmohan43.pythonanywhere.com/>, user `manojkmohan43`, teacher
+`mohitg27`. The Canvas comment needs the repository link, the site link and
+that username.
 
 ### Next
 The matching algorithm remains the biggest open design question:

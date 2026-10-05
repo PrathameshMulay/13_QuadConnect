@@ -307,7 +307,7 @@ class ChartTests(QuadConnectData):
         self.assertContains(response, f'src="{reverse("connect:chart-students-by-college")}"')
         self.assertContains(response, 'alt="Stacked bar chart of 3 verified students across 2 colleges')
         self.assertContains(response, 'alt="Pie chart of 4 interest selections by category.')
-        self.assertContains(response, "<figcaption>", count=2)
+        self.assertContains(response, "<figcaption>", count=4)  # + 2 Vega-Lite (P1-A4)
 
 
 # --- Section 5: forms on a class-based view -------------------------------------

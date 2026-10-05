@@ -1,0 +1,50 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "title": {
+    "text": "Students per interest",
+    "subtitle": "Verified students, most picked first",
+    "anchor": "start"
+  },
+  "description": "Bar chart of how many verified students picked each interest or registered student organization, most picked first.",
+  "data": {"url": "/api/summary/"},
+  "width": "container",
+  "height": 440,
+  "background": "white",
+  "encoding": {
+    "y": {
+      "field": "category",
+      "type": "nominal",
+      "sort": null,
+      "title": null,
+      "axis": {"labelLimit": 240}
+    },
+    "x": {
+      "field": "count",
+      "type": "quantitative",
+      "title": "Students",
+      "axis": {"tickMinStep": 1, "format": "d"}
+    }
+  },
+  "layer": [
+    {
+      "mark": {"type": "bar", "color": "#c0421c", "cornerRadiusEnd": 3},
+      "encoding": {
+        "tooltip": [
+          {"field": "category", "type": "nominal", "title": "Interest"},
+          {"field": "type", "type": "nominal", "title": "Type"},
+          {"field": "count", "type": "quantitative", "title": "Students"}
+        ]
+      }
+    },
+    {
+      "mark": {"type": "text", "align": "left", "dx": 4, "color": "#1f2933", "fontWeight": "bold"},
+      "encoding": {"text": {"field": "count", "type": "quantitative"}}
+    }
+  ],
+  "config": {
+    "font": "Inter, Segoe UI, Arial, sans-serif",
+    "view": {"stroke": null},
+    "title": {"color": "#1f2933", "subtitleColor": "#666e7b", "fontSize": 15},
+    "axis": {"labelColor": "#1f2933", "titleColor": "#1f2933", "gridColor": "#e3e3e0", "domainColor": "#8a929e"}
+  }
+}

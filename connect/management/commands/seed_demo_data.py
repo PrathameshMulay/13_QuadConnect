@@ -4,11 +4,16 @@ Seed realistic test data for the QuadConnect data model.
 Run with:  python manage.py seed_demo_data
 
 Creates eight verified student profiles, a shared interest catalogue, weekend
-availability, four approved campus locations, and three weekly matches (one
-Friend Connect, one Squad Connect, one completed experience with feedback) so
-that every relationship in the model is populated and inspectable in Admin.
+availability, four approved campus locations, and nineteen weekly matches
+over nine weeks: a summer pilot from mid-July, the first fall weeks, and the
+current week's two matches (one proposed, one confirmed). Completed matches
+carry check-ins and private feedback, so every relationship in the model is
+populated and inspectable in Admin. It also creates the two course staff
+accounts the assignments ask for.
 
-Idempotent: re-running updates the same rows instead of duplicating them.
+Idempotent and deterministic: re-running updates the same rows with the
+same values instead of duplicating them, so the committed db.sqlite3 can be
+rebuilt exactly.
 """
 
 from datetime import date, datetime, time, timedelta
@@ -123,6 +128,67 @@ AVAILABILITY = {
     "nhaddad4": [(Weekday.SUNDAY, TimeBlock.MIDDAY), (Weekday.SATURDAY, TimeBlock.MORNING)],
 }
 
+# When each student finished onboarding: fixed dates before the first
+# match, so a re-seed reproduces the same rows.
+ONBOARDED = {
+    "jordan4": date(2026, 6, 29), "nhaddad4": date(2026, 6, 30),
+    "apatel22": date(2026, 7, 1), "dokafor2": date(2026, 7, 2),
+    "rlin7": date(2026, 7, 6), "tbrooks5": date(2026, 7, 7),
+    "skoval3": date(2026, 7, 8), "mchen9": date(2026, 7, 9),
+}
+
+# Past weekly cycles, oldest first: a summer pilot from mid-July, then the
+# first fall weeks. Each row is (week start, check-in code, type, day,
+# start time, venue, suggested activity, status, participants, ratings).
+# Every student appears at most once per week, as the matching rules
+# require. Ratings become private feedback rows.
+SAT, SUN = 5, 6
+F, S = ConnectionType.FRIEND, ConnectionType.SQUAD
+DONE, CANCELLED = MatchStatus.COMPLETED, MatchStatus.CANCELLED
+HISTORY = [
+    (date(2026, 7, 13), "QC-1301", F, SUN, time(12), "Espresso Royale on Goodwin", "Coffee", DONE,
+     ["jordan4", "nhaddad4"], {"jordan4": 4, "nhaddad4": 4}),
+    (date(2026, 7, 20), "QC-1302", S, SAT, time(14), "Illini Union", "Board games", DONE,
+     ["apatel22", "dokafor2", "rlin7", "tbrooks5"],
+     {"apatel22": 5, "dokafor2": 4, "rlin7": 4, "tbrooks5": 3}),
+    (date(2026, 7, 27), "QC-1303", F, SUN, time(12), "Grainger Engineering Library", "Study/social space", DONE,
+     ["skoval3", "nhaddad4"], {"skoval3": 5, "nhaddad4": 5}),
+    (date(2026, 7, 27), "QC-1304", S, SAT, time(14), "The Main Quad", "Sports", DONE,
+     ["apatel22", "mchen9", "rlin7", "tbrooks5"], {"tbrooks5": 5, "rlin7": 4}),
+    (date(2026, 8, 3), "QC-1305", F, SUN, time(12), "Espresso Royale on Goodwin", "Coffee", DONE,
+     ["jordan4", "skoval3"], {"jordan4": 3, "skoval3": 3}),
+    (date(2026, 8, 3), "QC-1306", S, SAT, time(14), "Illini Union", "Board games", CANCELLED,
+     ["apatel22", "dokafor2", "mchen9", "rlin7"], {}),
+    (date(2026, 8, 10), "QC-1307", F, SAT, time(14), "Grainger Engineering Library", "Board games", DONE,
+     ["jordan4", "mchen9"], {"jordan4": 5, "mchen9": 4}),
+    (date(2026, 8, 10), "QC-1308", S, SAT, time(14), "The Main Quad", "Campus walk", DONE,
+     ["apatel22", "dokafor2", "rlin7", "tbrooks5"], {"dokafor2": 4, "apatel22": 4}),
+    (date(2026, 8, 17), "QC-1309", F, SUN, time(12), "Espresso Royale on Goodwin", "Coffee", DONE,
+     ["skoval3", "nhaddad4"], {"skoval3": 5, "nhaddad4": 4}),
+    (date(2026, 8, 17), "QC-1310", F, SAT, time(14), "Illini Union", "Food", DONE,
+     ["jordan4", "rlin7"], {"rlin7": 4}),
+    (date(2026, 8, 17), "QC-1311", S, SAT, time(14), "Grainger Engineering Library", "Board games", DONE,
+     ["apatel22", "mchen9", "dokafor2", "tbrooks5"], {"mchen9": 4, "tbrooks5": 4, "apatel22": 5}),
+    (date(2026, 8, 24), "QC-1312", F, SUN, time(12), "Espresso Royale on Goodwin", "Coffee", DONE,
+     ["jordan4", "nhaddad4"], {"jordan4": 5, "nhaddad4": 4}),
+    (date(2026, 8, 24), "QC-1313", S, SAT, time(14), "Illini Union", "Sports", DONE,
+     ["apatel22", "dokafor2", "tbrooks5", "rlin7"], {"apatel22": 4, "tbrooks5": 5}),
+    (date(2026, 8, 24), "QC-1314", F, SUN, time(12), "Grainger Engineering Library", "Study/social space", DONE,
+     ["skoval3", "mchen9"], {"skoval3": 5, "mchen9": 4}),
+    (date(2026, 8, 31), "QC-1315", S, SAT, time(14), "The Main Quad", "Sports", DONE,
+     ["apatel22", "dokafor2", "rlin7", "tbrooks5"], {"dokafor2": 5, "rlin7": 4}),
+    (date(2026, 8, 31), "QC-1316", F, SUN, time(12), "Espresso Royale on Goodwin", "Coffee", DONE,
+     ["jordan4", "nhaddad4"], {"jordan4": 4}),
+]
+# Who said no to the one cancelled match.
+DECLINED = {"QC-1306": {"dokafor2", "mchen9"}}
+
+# Course staff accounts. The assignments ask for an instructor login with
+# exactly these credentials on the deployed site. Student sign-in arrives
+# with SSO later, so students get no password at all.
+STAFF_USERNAMES = ["tester", "mohitg2"]
+STAFF_PASSWORD = "uiuc12345"  # noqa: S105 - published by the course
+
 
 class Command(BaseCommand):
     help = "Seed realistic QuadConnect test data (idempotent)."
@@ -135,6 +201,9 @@ class Command(BaseCommand):
         self._seed_picks(profiles, interests)
         self._seed_availability(profiles)
         self._seed_matches(profiles, interests, locations)
+        # After the three matches above, so they keep ids 1-3.
+        self._seed_history(profiles, interests, locations)
+        self._seed_staff()
         self._summarise()
 
     # -- catalogue ------------------------------------------------------
@@ -202,7 +271,8 @@ class Command(BaseCommand):
                     "prefers_shared_rso": shared_rso,
                     "open_to_other_departments": cross_dept,
                     "is_sso_verified": True,
-                    "onboarding_completed_at": timezone.now(),
+                    "onboarding_completed_at": timezone.make_aware(
+                        datetime.combine(ONBOARDED[net_id], time(19, 0))),
                 },
             )
             profiles[net_id] = profile
@@ -335,6 +405,86 @@ class Command(BaseCommand):
             f"feedback: {ExperienceFeedback.objects.count()}"
         )
 
+    def _seed_history(self, profiles, interests, locations):
+        """Past weekly cycles from HISTORY, with check-ins and feedback.
+
+        Match reasons and fit scores are derived from what each participant
+        shares with the others, so they stay consistent with PICKS.
+        """
+        tz = timezone.get_current_timezone()
+        activities = {name: obj for (name, category), obj in interests.items()
+                      if category == InterestCategory.ACTIVITY}
+        picks = {net_id: set(hobbies) | set(rsos)
+                 for net_id, (hobbies, rsos, _) in PICKS.items()}
+
+        for (week, code, kind, day, start, venue, activity, status,
+             members, ratings) in HISTORY:
+            when = timezone.make_aware(
+                datetime.combine(week + timedelta(days=day), start), tz)
+            match, _ = Match.objects.update_or_create(
+                check_in_code=code,
+                defaults={
+                    "connection_type": kind,
+                    "week_start": week,
+                    "scheduled_for": when,
+                    "location": locations[venue],
+                    "suggested_activity": activities[activity],
+                    "status": status,
+                },
+            )
+            declined = DECLINED.get(code, set())
+            for i, net_id in enumerate(members):
+                others = set().union(*(picks[m] for m in members if m != net_id))
+                shared = sorted(picks[net_id] & others)
+                accepted = net_id not in declined
+                participant, _ = MatchParticipant.objects.update_or_create(
+                    match=match,
+                    profile=profiles[net_id],
+                    defaults={
+                        "response": (ParticipantResponse.ACCEPTED if accepted
+                                     else ParticipantResponse.DECLINED),
+                        "compatibility_score": round(
+                            min(97.0, 70.0 + 6.5 * len(shared)) - 0.35 * i, 2),
+                        "match_reason": (", ".join(shared[:3]) if shared else
+                                         "Same free time and conversation style"),
+                        "checked_in_at": (when - timedelta(minutes=5)
+                                          if status == DONE and accepted else None),
+                    },
+                )
+                if net_id in ratings:
+                    rating = ratings[net_id]
+                    ExperienceFeedback.objects.update_or_create(
+                        participant=participant,
+                        defaults={
+                            "rating": rating,
+                            "enjoyed_conversation": rating >= 4,
+                            "enjoyed_shared_interests": bool(shared),
+                            "enjoyed_activity": rating == 5,
+                            "felt_comfortable": rating >= 3,
+                            "wants_to_stay_connected": rating >= 4,
+                            "private_note": "",
+                        },
+                    )
+        self.stdout.write(
+            f"Match history: {len(HISTORY)} past matches | matches in total: "
+            f"{Match.objects.count()}"
+        )
+
+    def _seed_staff(self):
+        """Create the course staff accounts, without resetting a changed password."""
+        for username in STAFF_USERNAMES:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={"is_staff": True, "is_superuser": True},
+            )
+            if created:
+                user.set_password(STAFF_PASSWORD)
+                user.save()
+            elif not (user.is_staff and user.is_superuser):
+                user.is_staff = user.is_superuser = True
+                user.save(update_fields=["is_staff", "is_superuser"])
+        self.stdout.write(f"Staff accounts: {', '.join(STAFF_USERNAMES)}")
+
     def _participants(self, match, rows, profiles):
         for row in rows:
             net_id, response, score, reason = row[:4]
@@ -358,3 +508,5 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"  {model._meta.verbose_name:24s} {model.objects.count():>4} rows"
             )
+        staff = User.objects.filter(is_staff=True).count()
+        self.stdout.write(f"  {'staff accounts':24s} {staff:>4} rows")
