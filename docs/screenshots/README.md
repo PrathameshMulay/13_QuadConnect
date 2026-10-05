@@ -76,3 +76,5 @@ first lines.
 | `15_reports_page.png` | 3 | Grouped summaries, totals, Download CSV and JSON buttons |
 | `16_downloaded_files.png` | 3 | The two downloaded files: timestamped names and their first lines |
 | `17_production_insights.png` | 4 | Production settings: hashed static files, charts still drawn |
+| `18_vega_editor_deployed_bar.png` | 4 | The deployed bar chart spec in the Vega-Lite editor, data from https://manojkmohan43.pythonanywhere.com/api/summary/ |
+| `19_vega_editor_deployed_line.png` | 4 | The deployed line chart spec in the Vega-Lite editor, data from the deployed API |

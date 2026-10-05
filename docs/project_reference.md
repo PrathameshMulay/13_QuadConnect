@@ -25,10 +25,10 @@ what we chose not to build, and where the shortcuts are.
 | | |
 |---|---|
 | **Repo** | `13_QuadConnect` |
-| **Assignment in flight** | **P1-A4** — APIs, Vega-Lite charts, exports, static files, initial deployment (40 pts) — built by Manojkumar on `feature/p1-a4`, due Mon 2026-10-05, 23:59 |
+| **Assignment in flight** | **P1-A4** — APIs, Vega-Lite charts, exports, static files, initial deployment (40 pts) — built by Manojkumar on `feature/p1-a4`, deployed at <https://manojkmohan43.pythonanywhere.com/>, due Mon 2026-10-05, 23:59 |
 | **Last completed** | P1-A3 — URLs, ORM, static files, charts, forms, API (60 pts) — merged into `main` (PR #6, wording fix PR #8) |
 | **`main` status** | Has P1-A2 and P1-A3 (`6ccd9d1`, PR #8). `feature/p1-a4` was cut from it. |
-| **What remains** | Deploy P1-A4 once the host is chosen (Parts 4.3–4.4), then merge `feature/p1-a4` into `main` through a PR. |
+| **What remains** | Merge `feature/p1-a4` into `main` through a PR (planned for 2026-10-05), point the PythonAnywhere copy at `main`, and submit on Canvas: the repository link, the site link and the PythonAnywhere username `manojkmohan43`. |
 
 `main` ships P1-A2 (split settings, `.env` handling, `base.html`, the shared
 list template, a home dashboard and the four graded views) and, since PR #6,
@@ -51,7 +51,7 @@ head has passed it.
 | Prathamesh Mulay | `feature/location-views` | Base CBV | `/locations/` | ✅ DONE — `CampusLocationListView` base CBV with setting + seats filters, reuses the shared list template |
 | Dhruv Thaker | `feature/feedback-views` | FBV `HttpResponse` | `/feedback/summary/` | ✅ DONE — aggregate feedback summary with rating distribution, enjoyment metrics, and connection preferences |
 | Manojkumar Mohankumar (P1-A3, solo) | `feature/p1-a3` | all six A3 sections | `/search/`, `/matches/<pk>/`, `/locations/<pk>/`, `/insights/`, `/api/` | ✅ DONE — merged to `main` in PR #6 (2026-09-28); see §9 |
-| Manojkumar Mohankumar (P1-A4) | `feature/p1-a4` | all four A4 parts | `/api/summary/`, `/vega-lite/...`, `/api/icebreakers/`, `/reports/`, `/export/...` | BUILT — verified, deployment waits for the host; see §9 |
+| Manojkumar Mohankumar (P1-A4) | `feature/p1-a4` | all four A4 parts | `/api/summary/`, `/vega-lite/...`, `/api/icebreakers/`, `/reports/`, `/export/...` | DONE — deployed at <https://manojkmohan43.pythonanywhere.com/>; merge to `main` pending; see §9 |
 
 **Whoever completes a branch:** updating this file is
 **Step 7 of that developer's build task** and a box on their Done
@@ -585,8 +585,9 @@ Vega-Lite specs that load them through `data.url`, drawn on `/insights/` and
 rendered at `/vega-lite/chart1.png` and `/vega-lite/chart2.jpg`. Part 2:
 Open Trivia DB icebreakers for each match (`/api/icebreakers/?match=<id>` and
 a page). Part 3: student CSV/JSON exports and `/reports/`. Part 4: frozen
-requirements, the committed seed database, the install-size check. Not
-deployed yet: the host is still to be chosen.
+requirements, the committed seed database, the install-size check.
+Deployed on 2026-10-04 to PythonAnywhere's free plan (user `manojkmohan43`,
+teacher `mohitg27`): <https://manojkmohan43.pythonanywhere.com/>.
 
 **Files added:** `connect/vega_charts.py`, `connect/specs/` (2 specs),
 `connect/icebreakers.py`, `connect/reports.py`, `connect/tests_a4.py`,
@@ -969,6 +970,11 @@ empty state renders (forced in a rolled-back transaction).
    a few seconds, rarely much longer on a busy Windows machine. The
    `--noreload` dev server also caches templates, so restart it after
    editing one.
+23. **PythonAnywhere from Windows:** a console created through the API only
+   starts once it is opened in a browser. Git Bash rewrites `/home/...`
+   arguments into Windows paths (set `MSYS_NO_PATHCONV=1`). And the live
+   `db.sqlite3` on the server is `--skip-worktree`, so `git pull` works
+   while the site writes to it.
 
 ---
 
@@ -993,12 +999,13 @@ one item, the public repository URL, due Mon 2026-09-28 at 23:59. The
 notes.txt answers the assignment asks for are in its section 2; screenshots
 in `docs/screenshots/p1-a3/`.
 
-### P1-A4 — APIs, Vega-Lite charts, exports, static files, deployment (40 pts) — built, deployment pending
+### P1-A4 — APIs, Vega-Lite charts, exports, static files, deployment (40 pts) — deployed, merge pending
 Built by Manojkumar on `feature/p1-a4` (§9). Due Mon 2026-10-05 at 23:59.
 Submission: the Vega-Lite specs (`connect/specs/`) and screenshots of the
-working charts (`docs/screenshots/p1-a4/`). Parts 4.3–4.4, the deployment
-itself, wait until the host is chosen; `README.md` § Deploying lists what it
-needs.
+working charts (`docs/screenshots/p1-a4/`), in the repository. Deployed to
+PythonAnywhere on 2026-10-04: <https://manojkmohan43.pythonanywhere.com/>, user `manojkmohan43`, teacher
+`mohitg27`. The Canvas comment needs the repository link, the site link and
+that username.
 
 ### Next
 The matching algorithm remains the biggest open design question:

@@ -21,6 +21,8 @@ Matching exists to produce a single real-world meeting.
 | Prathamesh Mulay | pmulay2 | Availability, scheduling, check-in |
 | Dhruv Thaker | dthaker3 | Social preferences & feedback |
 
+**Live site:** <https://manojkmohan43.pythonanywhere.com/> (PythonAnywhere, user `manojkmohan43`).
+
 ---
 
 ## Quick start
@@ -129,9 +131,13 @@ deployed site.
 
 The files in `connect/specs/` use a relative `data.url`, so one spec works on
 every host. Pasted into the editor as they are, they would look for the data
-on vega.github.io. To submit or share a spec, download it from
-`/vega-lite/chart1.vl.json` (or `chart2.vl.json`) on the deployed site: that
-copy carries the deployed API's full address.
+on vega.github.io. To submit or share a spec, use the copy the deployed site
+serves, which carries the deployed API's full address:
+<https://manojkmohan43.pythonanywhere.com/vega-lite/chart1.vl.json> and
+<https://manojkmohan43.pythonanywhere.com/vega-lite/chart2.vl.json>. Screenshots
+[18](docs/screenshots/p1-a4/18_vega_editor_deployed_bar.png) and
+[19](docs/screenshots/p1-a4/19_vega_editor_deployed_line.png) show both running in the editor
+on the deployed API.
 
 Screenshots: [01](docs/screenshots/p1-a4/01_vega_bar_chart.png) bar chart on the site,
 [02](docs/screenshots/p1-a4/02_vega_line_chart.png) line chart,
@@ -233,8 +239,24 @@ Screenshots: [15](docs/screenshots/p1-a4/15_reports_page.png) Reports,
   calls, every `/api/` route sits in one block of `urls.py`, every template
   extends `base.html`, and the CI smoke test requests every route.
 
-The deployment itself (Parts 4.3 and 4.4) waits until the host is chosen.
-[Deploying](#deploying) lists what any host needs.
+**Deployed (Parts 4.3 and 4.4):** <https://manojkmohan43.pythonanywhere.com/>, on PythonAnywhere's free
+plan, user `manojkmohan43`, with `mohitg27` set as teacher. The steps follow
+the course:
+
+- the repository cloned to `/home/manojkmohan43/13_QuadConnect`;
+- the virtualenv `/home/manojkmohan43/.virtualenvs/myenv-django` (Python
+  3.12), with `requirements.txt` installed;
+- `collectstatic` run with production settings;
+- on the Web tab: the WSGI file loading `quadconnect.settings.production`, the
+  virtualenv above, the static mapping `/static/` to
+  `/home/manojkmohan43/13_QuadConnect/staticfiles`, and HTTPS forced.
+
+The committed `db.sqlite3` is used as it is, so the optional steps 6 and 7
+(migrate, create the instructor account) were not needed: `tester` /
+`uiuc12345` logs in to `/admin/`. Every route answers on the live site, the
+icebreakers reach Open Trivia DB, and both specs run in the Vega-Lite editor
+from the deployed API ([18](docs/screenshots/p1-a4/18_vega_editor_deployed_bar.png),
+[19](docs/screenshots/p1-a4/19_vega_editor_deployed_line.png)).
 
 ---
 
@@ -394,8 +416,8 @@ secure cookies — with that flag, `check --deploy` reports zero issues.
 
 ## Deploying
 
-The host for P1-A4's deployment is not chosen yet. Whatever it is, the site
-needs:
+The site runs on PythonAnywhere (see P1-A4, Part 4). These are the steps it
+followed, and what any other host would need:
 
 1. Python 3.11 or newer, and the code:
    `git clone https://github.com/manojkmohan5/13_QuadConnect.git`.
@@ -437,6 +459,20 @@ Two things to check on the host:
 
 After deploying, `/vega-lite/chart1.vl.json` points `data.url` at the deployed
 API by itself, so the spec can be pasted into the Vega-Lite editor as it is.
+
+**Updating the PythonAnywhere site.** In a Bash console there:
+
+```bash
+cd ~/13_QuadConnect && git pull
+workon myenv-django
+DJANGO_SETTINGS_MODULE=quadconnect.settings.production python manage.py collectstatic --noinput
+```
+
+Then press **Reload** on the Web tab. The live `db.sqlite3` changes as people
+use the site (admin logins, venue suggestions). Git on the server ignores
+those changes (`git update-index --skip-worktree db.sqlite3`), so `git pull`
+still works. Never copy the live file back into the repository. A free web
+app also has to be extended on the Web tab once a month.
 
 ---
 

@@ -82,10 +82,18 @@ Decisions:
     and the renderer then needs no network at all.
   - The exports leave out the Illinois email.
 
+Deployed (2026-10-04): https://manojkmohan43.pythonanywhere.com/ on PythonAnywhere's free plan,
+user manojkmohan43, teacher access for mohitg27. Clone, virtualenv
+myenv-django (Python 3.12), requirements, collectstatic, WSGI file,
+static mapping and HTTPS done through the PythonAnywhere API and CLI.
+Every route answers on the live site; both specs run in the Vega-Lite
+editor from the deployed API (screenshots 18-19).
+
 Next:
-  - Deploy once the host is chosen (Parts 4.3-4.4), then try the specs in
-    the Vega-Lite editor with the deployed URLs.
-  - Merge feature/p1-a4 into main through a PR after its check passes.
+  - Merge feature/p1-a4 into main through a PR (Manojkumar, 2026-10-05),
+    then point the PythonAnywhere copy at main.
+  - Canvas comment: the repository link, the site link and the
+    PythonAnywhere username (manojkmohan43).
 
 --------------------------------------------------------------------------------
 WEEK 6  (w/c 2026-09-28)  -  P1-A3 merged into main  [PR #6]
@@ -791,7 +799,8 @@ Team-level observation
   Production needs one extra deploy step now: collectstatic --noinput.
 - P1-A4 (Manojkumar): built on feature/p1-a4. Due Mon 2026-10-05, 23:59.
   Submit the Vega-Lite specs (connect/specs/) and screenshots of the working
-  charts (docs/screenshots/p1-a4/). Deployment waits for the host choice.
+  charts (docs/screenshots/p1-a4/). Deployed at https://manojkmohan43.pythonanywhere.com/
+  (user manojkmohan43, teacher mohitg27).
 
 
 ================================================================================
