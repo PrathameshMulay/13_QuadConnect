@@ -49,8 +49,9 @@ python manage.py seed_demo_data
 python manage.py runserver
 ```
 
-Open <http://127.0.0.1:8000/>. Run the test suite with
-`python manage.py test connect` (87 tests).
+Open <http://127.0.0.1:8000/>, and log in as `tester` (see [Admin](#admin))
+or sign up. Run the test suite with `python manage.py test connect` (112
+tests).
 
 The first command after installing pauses for a while (up to a minute on
 Windows) while Matplotlib builds its font cache. That happens once.
@@ -77,6 +78,145 @@ exist.)
 
 ---
 
+## P1-A5 features
+
+Built on `feature/p1-a5`, cut from `main` after P1-A4. Tests are in
+[`connect/tests_a5.py`](connect/tests_a5.py). The public API, its Vega-Lite
+chart and its three other uses are written up in
+[`docs/a5/README.md`](docs/a5/README.md), with screenshots in
+[`docs/screenshots/p1-a5/`](docs/screenshots/p1-a5/).
+
+### Part 1: logins and private pages
+
+Accounts use [django-allauth](https://docs.allauth.org/) on top of Django's
+own `auth` app.
+
+- **Pages.** `/accounts/login/`, `/accounts/signup/` and `/accounts/logout/`
+  use the site's own templates
+  ([`templates/account/`](templates/account/)), not allauth's defaults.
+  - Log in takes a username or an email address.
+  - Sign up asks for a username, an email address and the password twice.
+  - Log out is a button in the header that sends a POST, so a link or an
+    image on another page cannot sign anyone out.
+- **Settings** ([`quadconnect/settings/base.py`](quadconnect/settings/base.py)):
+  - `LOGIN_URL = "account_login"`;
+  - `LOGIN_REDIRECT_URL = "connect:home"`;
+  - `LOGOUT_REDIRECT_URL = "connect:home"`;
+  - allauth's `AuthenticationBackend` next to Django's `ModelBackend`.
+
+  There is no mail server, so addresses are not verified by email, and the
+  login form has no "Forgot your password?" link. Staff reset passwords in
+  Django Admin.
+- **Private by default.** Django's `LoginRequiredMiddleware`, extended in
+  [`connect/middleware.py`](connect/middleware.py), protects every view that
+  is not marked `@login_not_required`. Only the landing page, the privacy
+  page, the sign-in pages and `/api/summary/` are marked. A new view is
+  private unless someone opens it on purpose.
+  - A page sends the visitor to the login page, then back to that page
+    (`?next=`).
+  - An API endpoint answers `401` with JSON instead, because a program cannot
+    fill in a login form.
+- **Navigation.** Signed out, the header shows only Home, Log in and Sign up,
+  and the home page describes the product instead of showing student data.
+  Signed in, it shows every section, "Signed in as *username*", and Log out.
+
+| Signed out, a request for | gets |
+|---|---|
+| `/`, `/privacy/`, `/accounts/login/`, `/accounts/signup/` | `200` |
+| `/api/summary/` | `200`, JSON |
+| any other page | `302` to `/accounts/login/?next=<that page>` |
+| any other `/api/` endpoint | `401`, JSON with a link to the login page |
+
+### Part 2: Continue with Google
+
+allauth's Google provider puts **Continue with Google** on the login and
+sign-up pages.
+
+- The button submits a POST form with a CSRF token. The sign-in uses PKCE,
+  and Google always asks which account to use, so a shared computer never
+  signs the next person in as the last one.
+- The first Google sign-in creates a QuadConnect account. A Google account
+  is never merged into an existing account just because the email addresses
+  match. Addresses here are not verified, so that would hand someone's Google
+  sign-in to whoever registered their address first. allauth asks that
+  person to log in first and connect Google instead.
+- Settings: `SOCIALACCOUNT_PROVIDERS` in `base.py`.
+
+The OAuth client's keys come only from the environment: `GOOGLE_CLIENT_ID`
+and `GOOGLE_CLIENT_SECRET` in `.env`. They are never stored in the database or
+the repository. In development, without them the button is hidden and password
+login works as before. Production settings refuse to start without them.
+
+QuadConnect's client lives in the Google Cloud project **QuadConnect**. It
+was created on 2026-10-09 and is published (**In production**), so any Google
+account can sign in. To set up a client from scratch, in the Google Cloud
+console:
+
+1. Create a project.
+2. On **Google Auth Platform**, set up the consent screen as **External**.
+3. Under **Clients**, create a client of type **Web application**. Add these
+   **Authorized redirect URIs**:
+   - `https://manojkmohan43.pythonanywhere.com/accounts/google/login/callback/`
+   - `http://127.0.0.1:8001/accounts/google/login/callback/`
+   - `http://localhost:8001/accounts/google/login/callback/`
+
+   For a local run on another port, add the same two local addresses with
+   that port.
+4. On **Branding**, add the application home page,
+   `https://manojkmohan43.pythonanywhere.com/`, and the privacy policy link,
+   `https://manojkmohan43.pythonanywhere.com/privacy/`. Google will not
+   publish an app without a privacy policy, and its sign-in screen links to
+   it.
+5. On **Audience**, click **Publish app**. Until it is published, only the
+   test users listed there can sign in. With only the name, email and
+   picture asked for, Google needs no review.
+6. Put the client ID and secret in `.env`, and restart the server.
+
+Screenshots, all taken on the live site:
+[05](docs/screenshots/p1-a5/05_login_page_google.png) the login page,
+[06](docs/screenshots/p1-a5/06_signup_page_google.png) the sign-up page,
+[07](docs/screenshots/p1-a5/07_nav_signed_out.png) the menu signed out,
+[08](docs/screenshots/p1-a5/08_google_signed_in_nav.png) signed in with Google,
+[09](docs/screenshots/p1-a5/09_private_api_401.png) a private API's 401, and
+[10](docs/screenshots/p1-a5/10_privacy_page.png) the privacy page.
+
+### Part 3: the public API
+
+`GET /api/summary/` is the one endpoint anyone can use: no login, any origin
+(`Access-Control-Allow-Origin: *`), and JSON built from the database on every
+request. It returns how many verified students picked each interest, and
+nothing about any one student. [`docs/a5/README.md`](docs/a5/README.md)
+covers the rest:
+
+- the Vega-Lite chart built on it in the editor
+  ([`docs/a5/group-13-vega-lite-API-demo.txt`](docs/a5/group-13-vega-lite-API-demo.txt));
+- three other uses: a command-line report, a Jupyter notebook and a
+  refreshable Excel workbook, each with its code, a screenshot and what it
+  found.
+
+### Deployed (2026-10-09)
+
+The live site, <https://manojkmohan43.pythonanywhere.com/>, runs
+`feature/p1-a5`, with its database outside the repository (`DJANGO_DB_PATH`).
+What was checked there after the deploy:
+
+- **Signed out:** the home, privacy, login, sign-up, Google sign-in and
+  password pages open. Private pages redirect to the login page, and private
+  APIs answer `401`. Only `/api/summary/` allows other sites to read it.
+  HTTPS is forced, with HSTS.
+- **Signed in as `tester`:** every page and API answers as it should.
+  Pages are sent with `no-store`, and logging out works.
+- **Sign-up:** a new account can sign up with a username and password, and
+  open private pages. It cannot open the admin. The account was then deleted.
+- **Google:** "Continue with Google" with a real Google account goes to
+  Google with the production callback, PKCE and an account chooser, then
+  comes back signed in ([08](docs/screenshots/p1-a5/08_google_signed_in_nav.png)).
+- **Vega-Lite:** `group-13-vega-lite-API-demo.txt`, pasted into the editor
+  in a browser that never logged in, draws from the live API with no errors
+  or warnings.
+
+---
+
 ## P1-A4 features
 
 Built on `feature/p1-a4`, cut from `main` after P1-A3. Screenshots are in
@@ -94,8 +234,9 @@ chart-ready JSON built from the models:
 | `GET /api/summary/` | verified students per interest, most picked first (a name used in two categories, like Food, gets its type added): `[{"category": "Food", "count": 4, "type": "Hobby / Interest"}, ...]` |
 | `GET /api/summary/matches-per-week/` | matches in each weekly cycle, oldest first: `{"records": [{"date": "2026-07-13", "count": 1, "participants": 2}, ...]}`; a week with no matches is listed with 0 |
 
-Every JSON endpoint sends `Access-Control-Allow-Origin: *`, so the Vega-Lite
-editor, or a classmate's chart on another site, can read it.
+Every JSON endpoint sent `Access-Control-Allow-Origin: *`, so the Vega-Lite
+editor, or a classmate's chart on another site, could read it. Since P1-A5
+only `/api/summary/` does, and every other endpoint needs a login.
 
 **Charts.** Two Vega-Lite v6 specs live in [`connect/specs/`](connect/specs/):
 a bar chart of students per interest
@@ -138,6 +279,11 @@ serves, which carries the deployed API's full address:
 [18](docs/screenshots/p1-a4/18_vega_editor_deployed_bar.png) and
 [19](docs/screenshots/p1-a4/19_vega_editor_deployed_line.png) show both running in the editor
 on the deployed API.
+
+Since P1-A5 the spec URLs need a login, and so does the line chart's data.
+The bar chart's data is the public API, so that spec still draws in the
+editor. The chart built for the editor is now
+[`docs/a5/group-13-vega-lite-API-demo.txt`](docs/a5/group-13-vega-lite-API-demo.txt).
 
 Screenshots: [01](docs/screenshots/p1-a4/01_vega_bar_chart.png) bar chart on the site,
 [02](docs/screenshots/p1-a4/02_vega_line_chart.png) line chart,
@@ -436,22 +582,27 @@ followed, and what any other host would need:
    the site is served over HTTPS. That flag also makes Django trust the host's
    `X-Forwarded-Proto` header. Without it, Django thinks requests arrive over
    `http`, so the chart specs would send an HTTPS page to `http://` data,
-   which browsers block.
+   which browsers block, and Google sign-in would send Google an `http://`
+   callback address that is not registered. For Google sign-in, also set
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (see
+   [P1-A5, Part 2](#part-2-continue-with-google)).
 4. `python manage.py collectstatic --noinput`, then
    `python manage.py check --deploy`.
 5. The WSGI application `quadconnect.wsgi:application`, which defaults to the
    production settings. If the host serves static files itself, map `/static/`
    to `staticfiles/`; if not, WhiteNoise serves them.
-6. Nothing for the database: the committed `db.sqlite3` is ready, `migrate`
-   finds nothing to do, and the course accounts `tester` and `mohitg2`
-   (password `uiuc12345`) are in it.
+6. The database: copy the committed `db.sqlite3` outside the repository,
+   then point `DJANGO_DB_PATH` at the copy in `.env`. `migrate` finds
+   nothing to do, and the course accounts `tester` and `mohitg2` (password
+   `uiuc12345`) are in it. The live site's accounts then never touch git.
 
 Two things to check on the host:
 
-- **Outbound HTTPS to `opentdb.com`**, for the icebreakers. PythonAnywhere's
-  free plan only reaches sites on its allowlist, and opentdb.com is on it.
-  Without it, the icebreakers page says the questions could not be loaded,
-  and the rest of the site works.
+- **Outbound HTTPS to `opentdb.com`**, for the icebreakers, and to
+  `*.googleapis.com`, where Google sign-in checks the code Google sends back.
+  PythonAnywhere's free plan only reaches sites on its allowlist, and both
+  are on it. Without opentdb.com, the icebreakers page says the questions
+  could not be loaded, and the rest of the site works.
 - **Memory:** a worker uses about 90 MB with the site loaded, and about 170 MB
   once it has drawn chart images, because vl-convert's renderer starts with
   the first image (measured on Windows). That first image takes a few
@@ -465,20 +616,24 @@ API by itself, so the spec can be pasted into the Vega-Lite editor as it is.
 ```bash
 cd ~/13_QuadConnect && git pull
 workon myenv-django
-DJANGO_SETTINGS_MODULE=quadconnect.settings.production python manage.py collectstatic --noinput
+pip install --no-cache-dir -r requirements.txt   # when requirements.txt changed
+export DJANGO_SETTINGS_MODULE=quadconnect.settings.production
+python manage.py migrate                         # when a migration was added
+python manage.py collectstatic --noinput
 ```
 
-Then press **Reload** on the Web tab. The live `db.sqlite3` changes as people
-use the site (admin logins, venue suggestions). Git on the server ignores
-those changes (`git update-index --skip-worktree db.sqlite3`), so `git pull`
-still works. Never copy the live file back into the repository. A free web
-app also has to be extended on the Web tab once a month.
+Then press **Reload** on the Web tab. The live database is
+`/home/manojkmohan43/quadconnect-data/db.sqlite3` (`DJANGO_DB_PATH` in the
+server's `.env`), outside the repository. So `git pull` never touches the
+accounts people create, and the repository's `db.sqlite3` stays the seed copy.
+Never copy the live file back into the repository. A free web app also has to
+be extended on the Web tab once a month.
 
 ---
 
 ## Continuous integration
 
-Every push to `feature/p1-a4`, the branch P1-A4 is built on, runs one GitHub
+Every push to `feature/p1-a5`, the branch P1-A5 is built on, runs one GitHub
 Actions check, **Deploy / test (push)**, defined in
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Its single job
 runs, in order:
@@ -489,21 +644,27 @@ runs, in order:
 3. `manage.py check`, and `makemigrations --check` (no model change without a migration)
 4. checks on the committed `db.sqlite3`: fully migrated, and seed data only
    (no login sessions, no admin history, no unapproved venues, no password
-   other than the two course accounts', and the `tester` login works)
+   other than the two course accounts', no stored OAuth client, and the
+   `tester` login works)
 5. `verify_constraints`, then the test suite (`manage.py test connect`)
 6. `check --deploy` and `collectstatic` with production settings
-7. a smoke test that boots the production build and checks the status and
-   Content-Type of 32 URLs, at least one for every route, plus the hashed
-   stylesheet's `immutable` cache header and the four hashed scripts the
-   Insights page loads
+7. a smoke test that boots the production build:
+   - signed out, 17 URLs: the public ones open, pages redirect to the login
+     page, and APIs answer `401`;
+   - it then logs in as `tester` through the login form, as a browser
+     would;
+   - signed in, it checks the status and Content-Type of 32 URLs, at least
+     one for every route;
+   - it also checks the hashed stylesheet's `immutable` cache header and the
+     four hashed scripts the Insights page loads.
 
 The workflow generates a throwaway `SECRET_KEY` for each run, so no repository
 secret is needed.
 
 `main` receives code only by merging the assignment's branch through a pull
 request, after the branch head has passed the check. P1-A3 reached `main` this
-way in PR #6 (2026-09-28), from `feature/p1-a3`, and the merged tree is
-identical to the commit that passed. The
+way in PR #6 (2026-09-28), from `feature/p1-a3`, and P1-A4 in PR #9
+(2026-10-05), from `feature/p1-a4`. The
 workflow does not run on `main` itself, so `main`'s merge commits show no check
 of their own; to run it there too, add `main` to its `on: push: branches:` line.
 
@@ -519,6 +680,9 @@ Copy `.env.example` → `.env`. `.env` is gitignored and must never be committed
 | `DJANGO_SETTINGS_MODULE` | Which settings module to load. |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated. Required in production. |
 | `DJANGO_SECURE_SSL` | `1` behind TLS: HSTS, SSL redirect, secure cookies. |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID. Required in production. In development, leave it empty to hide "Continue with Google". |
+| `GOOGLE_CLIENT_SECRET` | That client's secret. Required when `GOOGLE_CLIENT_ID` is set. |
+| `DJANGO_DB_PATH` | Optional: the SQLite file to use. Unset, the committed `db.sqlite3`; the live site keeps its own outside the repository. |
 | `MAPS_API_KEY` | Placeholder for the Screen 8 campus map. Dummy value. |
 
 ---
@@ -528,6 +692,7 @@ Copy `.env.example` → `.env`. `.env` is gitignored and must never be committed
 | Path | Name | View | Added |
 |---|---|---|---|
 | `/` | `connect:home` | FBV, `render()` | A2 |
+| `/privacy/` | `connect:privacy` | FBV, `render()`; public | A5 |
 | `/students/` | `connect:student-list` | Generic CBV (`ListView`) | A2 |
 | `/students/<pk>/` | `connect:student-detail` | Generic CBV (`DetailView`) | A2 |
 | `/search/` | `connect:student-search` | Base CBV (`View`), GET + POST | A3 |
@@ -552,10 +717,21 @@ Copy `.env.example` → `.env`. `.env` is gitignored and must never be committed
 | `/api/icebreakers/` | `connect:api-icebreakers` | FBV, `JsonResponse`; calls Open Trivia DB | A4 |
 | `/vega-lite/<chart>.vl.json` | `connect:vega-spec` | FBV, `JsonResponse` | A4 |
 | `/vega-lite/<chart>.png`, `.jpg` | `connect:vega-image` | FBV, `image/png` or `image/jpeg` | A4 |
+| `/accounts/login/` | `account_login` | django-allauth, template `account/login.html` | A5 |
+| `/accounts/signup/` | `account_signup` | django-allauth, template `account/signup.html` | A5 |
+| `/accounts/logout/` | `account_logout` | django-allauth, POST to log out | A5 |
+| `/accounts/google/login/` | `google_login` | django-allauth, POST: sends the browser to Google | A5 |
+| `/accounts/google/login/callback/` | `google_callback` | django-allauth: Google sends the browser back here | A5 |
 | `/admin/` | — | Django Admin | A1 |
 
-Every route is named and namespaced under `connect`, so templates reverse them
-with `{% url 'connect:match-list' %}` rather than hard-coding paths.
+Every route of the app is named and namespaced under `connect`, so templates
+reverse them with `{% url 'connect:match-list' %}` rather than hard-coding
+paths. `/accounts/` holds the rest of allauth's pages too (password change,
+connected accounts); the table lists the ones the site links to.
+
+**Access (since P1-A5).** Every route needs a login except `/`, `/privacy/`,
+`/api/summary/` and the sign-in pages under `/accounts/`. `/admin/` has its
+own login, for staff.
 
 ---
 
@@ -564,8 +740,11 @@ with `{% url 'connect:match-list' %}` rather than hard-coding paths.
 ```
 13_QuadConnect/
 ├── manage.py                     defaults to development settings
-├── requirements.txt              pip freeze: 23 pinned packages
+├── requirements.txt              pip freeze: 29 pinned packages
 ├── db.sqlite3                    committed: seed data only (P1-A4 deploys it)
+├── templates/                    site-wide templates
+│   ├── account/                  login, sign-up and logout pages (allauth)
+│   └── allauth/                  puts allauth's other pages in base.html
 ├── ruff.toml                     lint rules, shared by CI and local runs
 ├── .github/workflows/deploy.yml  CI: the one "Deploy / test" check
 ├── .env.example                  committed; copy to .env
@@ -580,7 +759,8 @@ with `{% url 'connect:match-list' %}` rather than hard-coding paths.
 │   ├── branching_strategy/       diagram.png + branching.md
 │   ├── notes/notes.txt           weekly log, view register, P1-A3 answers
 │   ├── build_tasks/              per-developer build instructions (A2)
-│   ├── screenshots/              A2 evidence; p1-a3/ and p1-a4/
+│   ├── screenshots/              A2 evidence; p1-a3/, p1-a4/ and p1-a5/
+│   ├── a5/                       the public API's chart and its three other uses
 │   ├── er_diagram.pdf
 │   └── data_model_notes.md       why each model and on_delete exists
 ├── quadconnect/
@@ -592,7 +772,8 @@ with `{% url 'connect:match-list' %}` rather than hard-coding paths.
 └── connect/                      the one domain app
     ├── models.py                 8 models; get_absolute_url() on 3
     ├── views.py                  pages, detail views, search, venue suggestions
-    ├── forms.py                  search, NetID lookup, venue suggestion
+    ├── forms.py                  search, NetID lookup, venue suggestion, login
+    ├── middleware.py             login required everywhere; 401 for the API
     ├── charts.py                 Matplotlib charts and the Insights page
     ├── api.py                    JSON API, chart data, and the docs page
     ├── vega_charts.py            Vega-Lite specs and their PNG/JPG images
@@ -601,6 +782,7 @@ with `{% url 'connect:match-list' %}` rather than hard-coding paths.
     ├── reports.py                reports page, CSV and JSON exports
     ├── tests.py                  45 tests, one class per P1-A3 section
     ├── tests_a4.py               42 tests, one class per P1-A4 part
+    ├── tests_a5.py               25 tests: access, navigation, accounts, Google
     ├── urls.py                   all routes named
     ├── admin.py                  all 8 models registered, with inlines
     ├── templates/connect/        base.html, shared entity_list.html, pages
@@ -664,7 +846,7 @@ Per-developer build instructions from P1-A2 live in
 
 ## Tech
 
-Django 5.2.17 · Python 3.11 · SQLite · `python-dotenv` · WhiteNoise 6.12 ·
+Django 5.2.17 · Python 3.11 · SQLite · django-allauth 65.19 · `python-dotenv` · WhiteNoise 6.12 ·
 Matplotlib 3.11 · Vega-Lite 6.4 (vega-embed in the browser, vl-convert on the
 server) · `requests`. No JavaScript framework, no CSS framework, no build step:
 server-rendered Django templates, one stylesheet, and one short script that

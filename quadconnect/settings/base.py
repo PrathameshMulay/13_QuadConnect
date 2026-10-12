@@ -66,6 +66,12 @@ INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
 
+    # Accounts (P1-A5): username/password and Google sign-in.
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+
     # QuadConnect domain app: the verified connection lifecycle.
     "connect",
 ]
@@ -80,6 +86,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Every page needs a login unless its view is marked public (P1-A5).
+    "connect.middleware.LoginRequiredMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -106,10 +115,13 @@ ASGI_APPLICATION = "quadconnect.asgi.application"
 
 
 # --- Database -------------------------------------------------------------
+# The committed db.sqlite3 holds seed data only. The live site points
+# DJANGO_DB_PATH at a copy outside the repository, so git never touches the
+# accounts people create there.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": env("DJANGO_DB_PATH", default=BASE_DIR / "db.sqlite3"),
     }
 }
 
@@ -150,3 +162,49 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# --- Accounts (P1-A5) -----------------------------------------------------
+# django-allauth runs both ways in: a username or email with a password, and
+# Google. Every page needs a login unless its view is marked
+# @login_not_required (connect/middleware.py); those that are: the home page,
+# the privacy page, the public API (/api/summary/), and allauth's sign-in pages.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",          # username + password, admin
+    "allauth.account.auth_backends.AuthenticationBackend",  # email login, Google
+]
+LOGIN_URL = "account_login"
+LOGIN_REDIRECT_URL = "connect:home"
+LOGOUT_REDIRECT_URL = "connect:home"
+
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
+ACCOUNT_SIGNUP_FIELDS = ["username*", "email*", "password1*", "password2*"]
+# No mail server: addresses are not verified by email, and no email is sent.
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_FORMS = {"login": "connect.forms.LoginForm"}  # no "Forgot your password?"
+ACCOUNT_ADAPTER = "connect.adapters.AccountAdapter"  # visitor IP behind the proxy
+
+# A Google sign-in never opens an existing account just because the email
+# addresses match (SOCIALACCOUNT_EMAIL_AUTHENTICATION stays off): addresses
+# here are never verified, so whoever registered an address first would get
+# its owner's Google sign-in, and the seeded students' addresses are made
+# up. allauth asks such a user to log in first and connect Google instead.
+
+# The Google client comes from the environment (.env), never the database:
+# db.sqlite3 is committed to a public repository. Without GOOGLE_CLIENT_ID the
+# provider has no app, and the "Continue with Google" button is not shown.
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        # select_account: Google always asks which account, so a shared
+        # computer never signs the next person in as the last one.
+        "AUTH_PARAMS": {"access_type": "online", "prompt": "select_account"},
+        "OAUTH_PKCE_ENABLED": True,
+    },
+}
+if env("GOOGLE_CLIENT_ID"):
+    SOCIALACCOUNT_PROVIDERS["google"]["APPS"] = [{
+        "client_id": env("GOOGLE_CLIENT_ID"),
+        "secret": env("GOOGLE_CLIENT_SECRET", required=True),
+        "key": "",
+    }]

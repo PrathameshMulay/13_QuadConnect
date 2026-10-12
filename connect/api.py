@@ -1,5 +1,5 @@
 """
-Read-only JSON API (P1-A3 Section 6, extended in P1-A4).
+Read-only JSON API (P1-A3 Section 6, extended in P1-A4 and P1-A5).
 
     GET /api/                           FBV  api_docs            HTML documentation
     GET /api/locations/                 CBV  LocationListAPI     JsonResponse
@@ -10,9 +10,12 @@ Read-only JSON API (P1-A3 Section 6, extended in P1-A4).
     GET /api/icebreakers/?match=<id>    FBV  (icebreakers.py)    Open Trivia DB (A4)
 
 The two /api/summary/ endpoints feed the Vega-Lite charts: flat rows, no
-wrapping metadata, so a spec can point data.url straight at them. Every
-JSON endpoint here allows any origin (CORS), because the data is public
-and read-only and the Vega-Lite editor loads it from another site.
+wrapping metadata, so a spec can point data.url straight at them.
+
+Public and protected (P1-A5): /api/summary/ is the one public endpoint. It
+needs no login and allows any origin (CORS), so the Vega-Lite editor or
+anyone's script can read it; it holds counts only, no names. Every other
+endpoint needs a login, and answers 401 without one (connect/middleware.py).
 
 JsonResponse vs HttpResponse: JsonResponse serialises a dict with
 DjangoJSONEncoder (dates, datetimes and decimals included) and sets
@@ -32,15 +35,16 @@ from datetime import timedelta
 from functools import wraps
 
 from django import forms
+from django.contrib.auth.decorators import login_not_required
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.utils.decorators import method_decorator
 from django.utils.timezone import localtime
 from django.views import View
 from django.views.decorators.http import require_GET
 
+from .middleware import login_required_response
 from .models import CampusLocation, ConnectionType, Interest, Match, MatchStatus
 
 JSON_PARAMS = {"indent": 2}  # readable in a browser; a few bytes per line
@@ -49,8 +53,8 @@ JSON_PARAMS = {"indent": 2}  # readable in a browser; a few bytes per line
 def allow_any_origin(view):
     """Let a page on any other site read this response (CORS).
 
-    Only for public, read-only data: it is what lets the Vega-Lite editor,
-    or a classmate's chart, load our API from their own page.
+    Only for the public API: it is what lets the Vega-Lite editor, or a
+    classmate's chart, load /api/summary/ from their own page.
     """
     @wraps(view)
     def wrapped(request, *args, **kwargs):
@@ -141,7 +145,6 @@ def _location_json(request, venue):
     }
 
 
-@method_decorator(allow_any_origin, name="dispatch")
 class LocationListAPI(View):
     """GET /api/locations/ - approved venues as JSON (class-based).
 
@@ -161,7 +164,6 @@ class LocationListAPI(View):
         }, json_dumps_params=JSON_PARAMS)
 
 
-@allow_any_origin
 @require_GET
 def location_list_text(request):
     """GET /api/locations.txt - the same venues through plain HttpResponse.
@@ -202,7 +204,6 @@ def _match_json(request, match):
     }
 
 
-@allow_any_origin
 @require_GET
 def match_list_api(request):
     """GET /api/matches/ - the match schedule as JSON (function-based).
@@ -281,6 +282,7 @@ def matches_per_week():
             for week in sorted(grid | set(rows))]
 
 
+@login_not_required  # the one public endpoint (P1-A5)
 @allow_any_origin
 @require_GET
 def summary_api(request):
@@ -293,7 +295,6 @@ def summary_api(request):
                         json_dumps_params=JSON_PARAMS)
 
 
-@allow_any_origin
 @require_GET
 def matches_per_week_api(request):
     """GET /api/summary/matches-per-week/ - matches per week, for the line
@@ -309,17 +310,19 @@ def matches_per_week_api(request):
 def api_docs(request):
     """GET /api/ - how to call each endpoint, with live examples.
 
-    The Content-Type values and the sample body come from calling the real
+    The Content-Type values and the sample bodies come from calling the real
     views, so this page cannot drift from what the API actually returns.
     """
     json_response = LocationListAPI.as_view()(request)
     text_response = location_list_text(request)
+    login_response = login_required_response(request)
     locations = reverse("connect:api-locations")
     matches = reverse("connect:api-matches")
     text = reverse("connect:api-locations-text")
     icebreakers = reverse("connect:api-icebreakers")
     return render(request, "connect/api_docs.html", {
         "sample": json_response.content.decode(),
+        "login_sample": login_response.content.decode(),
         "json_type": json_response["Content-Type"],
         "text_type": text_response["Content-Type"],
         "html_type": HttpResponse()["Content-Type"],
