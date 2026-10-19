@@ -2,8 +2,9 @@
 {% comment %}
 "Ask in plain English" (P1-A6 Part 2). A local language model turns the request
 into the filters shown under "Understood as" (connect/ai_search.py); the
-database does the searching. The request and the model's answer are never
-stored, and the model never sees a student record.
+database does the searching. The request and the model's answer are not saved
+in the database (the filters are cached in memory for an hour), and the model
+never sees a student record.
 {% endcomment %}
 
 {% block title %}{% if form.errors %}Error: {% endif %}Ask in plain English - QuadConnect{% endblock %}
@@ -106,6 +107,8 @@ stored, and the model never sees a student record.
                   {% else %}
                     <li class="chip">{{ interest.name }}</li>
                   {% endif %}
+                {% empty %}
+                  <li class="chip">No interests yet</li>
                 {% endfor %}
               </ul>
             </div>

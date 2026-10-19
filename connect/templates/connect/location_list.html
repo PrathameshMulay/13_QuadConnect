@@ -85,7 +85,7 @@ is POST with {% csrf_token %} (it creates a row).
                 {# P1-A6: the automatic check's advice (connect/ai_venues.py). #}
                 <div class="meta">
                   <span>Automatic check: {{ venue.get_ai_decision_display|default:"not run" }}</span>
-                  {% for flag in venue.ai_flag_labels %}<span>{{ flag }}</span>{% endfor %}
+                  {% for flag in venue.ai_flag_labels %}<span>{{ flag }}</span> {% endfor %}
                 </div>
                 {% if venue.ai_reason %}<p class="form-note">{{ venue.ai_reason }}</p>{% endif %}
               </div>

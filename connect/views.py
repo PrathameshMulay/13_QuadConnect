@@ -24,6 +24,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -370,8 +371,13 @@ class CampusLocationListView(View):
         if form.is_valid():
             venue = form.save(commit=False)
             venue.is_approved = False  # the model default is True
-            ai_venues.check_suggestion(venue)
-            venue.save()
+            ai_venues.check_suggestion(venue, request.user)
+            try:
+                with transaction.atomic():  # only this insert rolls back, not the request
+                    venue.save()
+            except IntegrityError:  # the same name was saved while the check ran (a double click)
+                form.add_error("name", CampusLocationSuggestionForm.Meta.error_messages["name"]["unique"])
+                return self._render(request, form)
             messages.success(request, (
                 f'Thanks. "{venue.name}" was sent for review and will be '
                 f"listed here once staff approve it."

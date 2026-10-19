@@ -39,6 +39,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from .models import (
+    ConnectionType,
     Interest,
     InterestCategory,
     SocialEnergy,
@@ -53,25 +54,28 @@ MAX_REQUEST_CHARS = 200
 MAX_INTERESTS = 4
 MAX_NEW_TOKENS = 64
 CACHE_SECONDS = 60 * 60
-RATE_LIMIT, RATE_WINDOW = 10, 60  # model runs per user per minute; cached answers are free
+# Model runs per user per minute; cached answers are free. Like the model itself
+# and the cache, the count is per web-server process (see README_AI.md).
+RATE_LIMIT, RATE_WINDOW = 10, 60
+LOCK_WAIT_SECONDS = 5  # how long a search waits for the model before using keywords
+RETRY_LOAD_SECONDS = 300  # after a failed load, how long before trying again
 
-CHOICES = {
-    "connection": ["FRIEND", "SQUAD"],
-    "day": ["SATURDAY", "SUNDAY"],
-    "time": ["10-12", "12-14", "14-16", "16-18"],
-    "energy": ["QUIET", "BALANCED", "SOCIAL"],
-}
 DAYS = {"SATURDAY": Weekday.SATURDAY, "SUNDAY": Weekday.SUNDAY}
 ENERGY = {  # filter value -> SocialEnergy range
     "QUIET": (SocialEnergy.QUIET, SocialEnergy.RESERVED),
     "BALANCED": (SocialEnergy.BALANCED, SocialEnergy.BALANCED),
     "SOCIAL": (SocialEnergy.OUTGOING, SocialEnergy.VERY_SOCIAL),
 }
+CHOICES = {  # the values each filter may take, from the models' own choices
+    "connection": list(ConnectionType.values),
+    "day": list(DAYS),
+    "time": list(TimeBlock.values),
+    "energy": list(ENERGY),
+}
 
 
 # --- 1. The request ---------------------------------------------------------------
 
-_INVISIBLE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏‪-‮⁠﻿]")
 _TAG = re.compile(r"<[^>]{0,200}>")
 INJECTION = re.compile(
     r"ignore (all |any )?(the )?(previous|prior|above|earlier|your) (instructions|rules|prompts?)"
@@ -83,12 +87,22 @@ INJECTION = re.compile(
 )
 
 
-def clean_request(text):
-    """Plain, single-line text of at most 200 characters. Strips what could hide
-    from a reader (control, zero-width and direction characters), markup, and
-    the double quotes that fence the request inside the prompt."""
+def plain_text(text, limit):
+    """Text a reader sees in full, at most `limit` characters. NFKC folds
+    look-alike letters into plain ones; control characters become spaces; the
+    other invisible ones (zero-width, soft hyphen, text direction, tag
+    characters: Unicode's "C" categories) are removed, so they cannot hide a
+    word from the checks; whitespace is collapsed. Shared with ai_venues.py."""
     text = unicodedata.normalize("NFKC", str(text or ""))
-    text = _TAG.sub(" ", _INVISIBLE.sub(" ", text)).replace('"', "'")
+    kept = (" " if unicodedata.category(char) == "Cc" else "" if unicodedata.category(char)[0] == "C" else char
+            for char in text)
+    return " ".join("".join(kept).split())[:limit]
+
+
+def clean_request(text):
+    """The request as plain text (plain_text), without markup, and with the
+    double quotes that fence it inside the prompt made single."""
+    text = _TAG.sub(" ", plain_text(text, 4 * MAX_REQUEST_CHARS)).replace('"', "'")
     return " ".join(text.split())[:MAX_REQUEST_CHARS]
 
 
@@ -160,9 +174,12 @@ def build_messages(text, interests, colleges):
 # --- 3. Reading the reply ----------------------------------------------------------
 
 def first_json_object(text):
-    """The first complete {...} in a reply (models wrap JSON in fences or chat), or None."""
-    start = text.find("{")
-    while start != -1:
+    """The first complete {...} in a reply (models wrap JSON in fences or chat), or None.
+    Tries at most 20 starting points: a real reply has its object near the start,
+    and a reply full of unmatched braces must not take seconds to scan."""
+    start, tries = text.find("{"), 0
+    while start != -1 and tries < 20:
+        tries += 1
         depth, in_string, escaped = 0, False, False
         for end in range(start, len(text)):
             char = text[end]
@@ -182,7 +199,7 @@ def first_json_object(text):
                 if depth == 0:
                     try:
                         value = json.loads(text[start:end + 1])
-                    except ValueError:
+                    except (ValueError, RecursionError):  # not JSON, or nested absurdly deep
                         break
                     return value if isinstance(value, dict) else None
         start = text.find("{", start + 1)
@@ -234,10 +251,11 @@ def clean_filters(obj, interests, colleges):
 
 # --- 4. The fallback: keywords, no model ----------------------------------------------
 
-INTEREST_WORDS = {  # word stems -> interest names; a name missing from the database is skipped
+INTEREST_WORDS = {  # the start of a word -> interest name; a name missing from the database is skipped
     "basketball": "Basketball", "gam": "Gaming", "video game": "Gaming", "music": "Music", "movie": "Movies",
     "film": "Movies", "food": "Food", "fitness": "Fitness", "gym": "Fitness", "workout": "Fitness",
-    r"art\b": "Art", "paint": "Art", "draw": "Art", "travel": "Travel", "read": "Reading", "book": "Reading",
+    r"art\b": "Art", "paint": "Art", "draw": "Art", "travel": "Travel", r"read(s|er|ers|ing)?\b": "Reading",
+    r"books?\b": "Reading",
     "tech": "Technology", "outdoor": "Outdoors", "hik": "Outdoors", "photo": "Photography",
     "student government": "Illinois Student Government", "esports": "UIUC Esports",
     "dance marathon": "UIUC Dance Marathon", "habitat": "Habitat for Humanity UIUC",
@@ -245,25 +263,26 @@ INTEREST_WORDS = {  # word stems -> interest names; a name missing from the data
     "robot": "Illini Robotics", "business illini": "Business Illini", "illini media": "Illini Media",
     "engineers without borders": "Engineers Without Borders",
 }
-COLLEGE_WORDS = {
-    r"engineer|grainger": "Grainger College of Engineering",
-    r"business|gies": "Gies College of Business",
-    r"journalis|media\b|advertising": "College of Media",
-    r"liberal arts|\blas\b|psycholog": "College of Liberal Arts & Sciences",
-    r"applied health|\bahs\b|kinesiolog": "College of Applied Health Sciences",
-    r"fine (and|&) applied arts|\bfaa\b|design": "College of Fine & Applied Arts",
+COLLEGE_WORDS = {  # whole words only: "technologies" is not Gies, and Business Illini is a club
+    r"\bengineer|\bgrainger\b": "Grainger College of Engineering",
+    r"\bbusiness\b(?! illini)|\bgies\b": "Gies College of Business",
+    r"\bjournalis|(?<!illini )\bmedia\b|\badvertising\b": "College of Media",
+    r"\bliberal arts\b|\blas\b|\bpsycholog": "College of Liberal Arts & Sciences",
+    r"\bapplied health\b|\bahs\b|\bkinesiolog": "College of Applied Health Sciences",
+    r"\bfine (and|&) applied arts\b|\bfaa\b|\bdesign": "College of Fine & Applied Arts",
 }
-OTHER_WORDS = [
-    ("connection", r"one[- ]on[- ]one|1[- ]on[- ]1|1:1|one person|a friend\b", "FRIEND"),
-    ("connection", r"squad|group", "SQUAD"),
+OTHER_WORDS = [  # (filter, words, value); whole words, so "cloud" is not loud
+    ("connection", r"\bone[- ]on[- ]one\b|\b1[- ]on[- ]1\b|\b1:1\b|\bone person\b|\ba friend\b",
+     ConnectionType.FRIEND),
+    ("connection", r"\bsquads?\b|\bgroups?\b", ConnectionType.SQUAD),
     ("day", r"\bsat(urday)?s?\b", "SATURDAY"),
     ("day", r"\bsun(day)?s?\b", "SUNDAY"),
-    ("time", r"morning|10 ?(am)? ?(-|to) ?12", "10-12"),
-    ("time", r"\bnoon|midday|lunch|12 ?(pm)? ?(-|to) ?2\b", "12-14"),  # \b: "afternoon" is not noon
-    ("time", r"afternoon|\b2 ?(pm)? ?(-|to) ?4\b", "14-16"),
-    ("time", r"evening|\b4 ?(pm)? ?(-|to) ?6\b", "16-18"),
-    ("energy", r"quiet|shy|introvert|low[- ]key|calm", "QUIET"),
-    ("energy", r"outgoing|very social|extrovert|loud", "SOCIAL"),
+    ("time", r"\bmornings?\b|\b10 ?(am)? ?(-|to) ?12\b", TimeBlock.MORNING),
+    ("time", r"\bnoon\b|\bmidday\b|\blunch|\b12 ?(pm)? ?(-|to) ?2\b", TimeBlock.MIDDAY),
+    ("time", r"\bafternoons?\b|\b2 ?(pm)? ?(-|to) ?4\b", TimeBlock.AFTERNOON),
+    ("time", r"\bevenings?\b|\b4 ?(pm)? ?(-|to) ?6\b", TimeBlock.EVENING),
+    ("energy", r"\bquiet\b|\bshy\b|\bintrovert|\blow[- ]key\b|\bcalm\b", "QUIET"),
+    ("energy", r"\boutgoing\b|\bvery social\b|\bextrovert|\bloud\b", "SOCIAL"),
 ]
 
 
@@ -274,7 +293,8 @@ def keyword_filters(text, interests, colleges):
     low = text.lower()
     found = {}
     picked = [name for stem, name in INTEREST_WORDS.items() if name in interests and re.search(rf"\b{stem}", low)]
-    picked += [name for name in interests if name.lower() in low and name not in picked]
+    picked += [name for name in interests
+               if name not in picked and re.search(rf"\b{re.escape(name.lower())}\b", low)]
     if picked:
         found["interests"] = list(dict.fromkeys(picked))[:MAX_INTERESTS]
     for pattern, college in COLLEGE_WORDS.items():
@@ -294,6 +314,10 @@ class ModelUnavailable(Exception):
     missing, or the weights could not be downloaded or loaded."""
 
 
+class ModelBusy(ModelUnavailable):
+    """Another search has been using the model for longer than LOCK_WAIT_SECONDS."""
+
+
 class LocalModel:
     """One Hugging Face model, loaded on first use and shared by every request.
     A lock makes requests take turns: one model in memory, one answer at a time.
@@ -308,8 +332,12 @@ class LocalModel:
         self.lock = threading.Lock()
         self.tokenizer = self.model = None
         self.prefix_ids = self.prefix_cache = None
+        self.retry_load_at = 0.0  # after a failed load, not before this (time.monotonic())
 
     def _load(self):
+        if time.monotonic() < self.retry_load_at:
+            raise ModelUnavailable(f"{self.name} failed to load recently; not retrying yet.")
+        self.retry_load_at = time.monotonic() + RETRY_LOAD_SECONDS  # cleared below once loaded
         try:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -327,6 +355,7 @@ class LocalModel:
             self.model = model.to(device).eval()
         except Exception as error:  # offline, unknown model id, out of memory: all mean "not available"
             raise ModelUnavailable(f"Could not load {self.name}: {error}") from error
+        self.retry_load_at = 0.0
         logger.info("%s ready in %.1f s", self.name, time.perf_counter() - started)
 
     def _shared_start(self, messages, input_ids):
@@ -355,10 +384,14 @@ class LocalModel:
         return copy.deepcopy(self.prefix_cache)
 
     def generate(self, messages):
-        import torch
-        with self.lock:
+        # A search waits a few seconds at most: if another one holds the model
+        # (or it is downloading), this one uses the keyword parser instead.
+        if not self.lock.acquire(timeout=LOCK_WAIT_SECONDS):
+            raise ModelBusy("The language model is busy with another search.")
+        try:
             if self.model is None:
                 self._load()
+            import torch  # after _load(), which reports a missing torch as ModelUnavailable
             batch = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt",
                                                        return_dict=True).to(self.model.device)
             prompt_tokens = batch["input_ids"].shape[1]
@@ -370,6 +403,8 @@ class LocalModel:
                     tokenizer=self.tokenizer, max_time=settings.AI_LOCAL_MAX_SECONDS,
                     pad_token_id=self.tokenizer.eos_token_id if pad is None else pad)
             return self.tokenizer.decode(output[0][prompt_tokens:], skip_special_tokens=True)
+        finally:
+            self.lock.release()
 
 
 _model = None
@@ -411,7 +446,8 @@ def understand(raw_text, user=None):
     if answer["flagged"]:
         logger.warning("Search request that tries to instruct the model: %.120r", text)
     obj = None
-    if user is None or not rate_limited(user):
+    # The limit counts model runs, so it is not used up while the model is off.
+    if user is None or not settings.AI_LOCAL_ENABLED or not rate_limited(user):
         messages = build_messages(text, interests, colleges)
         try:
             reply = generate_reply(messages)
@@ -423,6 +459,8 @@ def understand(raw_text, user=None):
                     {"role": "user", "content": "Reply with only the JSON object, using only the allowed values."}]))
             if obj is None:
                 answer["note"] = "The language model did not give a usable answer."
+        except ModelBusy as error:
+            answer["note"] = str(error)
         except ModelUnavailable as error:  # the detail (paths, errors) goes to the log, not the page
             answer["note"] = ("The language model is switched off on this server." if not settings.AI_LOCAL_ENABLED
                               else "The language model is not available on this server right now.")
@@ -464,8 +502,9 @@ def find_students(filters):
     if names:
         students = students.filter(interest_links__interest__name__in=names)
     # Re-select by pk, so the joins above cannot skew the counts below.
-    shared = (Count("interest_links", filter=Q(interest_links__interest__name__in=names)) if names
-              else Value(0))
+    # distinct: a name can exist in two categories (Food is a hobby and an activity).
+    shared = (Count("interest_links__interest__name", filter=Q(interest_links__interest__name__in=names),
+                    distinct=True) if names else Value(0))
     return (StudentProfile.objects.filter(pk__in=students.values("pk"))
             .annotate(shared=shared)
             .prefetch_related("interests")
@@ -477,9 +516,8 @@ def describe(filters):
     words = [f"Interest: {name}" for name in filters.get("interests", [])]
     if "college" in filters:
         words.append(filters["college"])
-    labels = {"FRIEND": "Friend Connect (1-on-1)", "SQUAD": "Squad Connect (small group)"}
     if "connection" in filters:
-        words.append(labels[filters["connection"]])
+        words.append(ConnectionType(filters["connection"]).label)
     if "day" in filters:
         words.append(DAYS[filters["day"]].label)
     if "time" in filters:
@@ -490,14 +528,18 @@ def describe(filters):
     return words
 
 
-def rate_limited(user):
-    """True once this user has run the model RATE_LIMIT times in RATE_WINDOW seconds."""
-    key = f"ai-search-rate:{user.pk}"
-    cache.add(key, 0, RATE_WINDOW)
+def rate_limited(user, scope="search", limit=None, window=None):
+    """True once this user has used `scope` more than `limit` times in `window`
+    seconds (by default RATE_LIMIT model runs a minute). Also used by the venue
+    check (ai_venues.py)."""
+    limit = RATE_LIMIT if limit is None else limit
+    window = RATE_WINDOW if window is None else window
+    key = f"ai-rate:{scope}:{user.pk}"
+    cache.add(key, 0, window)
     try:
-        return cache.incr(key) > RATE_LIMIT
+        return cache.incr(key) > limit
     except ValueError:  # the window expired between add() and incr()
-        cache.set(key, 1, RATE_WINDOW)
+        cache.set(key, 1, window)
         return False
 
 
@@ -518,6 +560,13 @@ class AskForm(forms.Form):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("label_suffix", "")
         super().__init__(*args, **kwargs)
+
+    def clean_q(self):
+        """The request as the model will see it; "<b>" alone is not a request."""
+        text = clean_request(self.cleaned_data["q"])
+        if len(text) < 3:
+            raise forms.ValidationError(self.fields["q"].error_messages["min_length"])
+        return text
 
 
 SAMPLES = [

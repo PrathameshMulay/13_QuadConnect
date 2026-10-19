@@ -13,8 +13,9 @@ staff approve a venue, in Django Admin.
          only make the decision stricter -> saved on the CampusLocation row
 
 Only the venue's own fields are sent: never the name, username or email of the
-person who suggested it. Without an API key, or when the API fails, nothing is
-sent and the suggestion is saved as "not checked" for staff to review by hand.
+person who suggested it. Without an API key, when the API fails, or past the
+hourly limit per user, nothing is sent and the suggestion is saved as "not
+checked" for staff to review by hand.
 
 Providers are OpenAI-compatible chat-completions endpoints, so switching is a
 setting (AI_API_PROVIDER); the key is read from .env only (see settings).
@@ -28,7 +29,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from .ai_search import first_json_object
+from .ai_search import first_json_object, plain_text, rate_limited
 from .models import VenueCheck
 
 logger = logging.getLogger(__name__)
@@ -40,12 +41,16 @@ PROVIDERS = {
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-2.5-flash"),
     "huggingface": ("https://router.huggingface.co/v1/chat/completions", "Qwen/Qwen2.5-72B-Instruct"),
 }
-TIMEOUT_SECONDS = 15
+TIMEOUT_SECONDS = 10  # the check takes 1-3 s; a stuck API must not hold the form for long
 # Room for a reasoning model to think before it answers: with 150, gpt-oss
 # spent the whole budget thinking and returned nothing (checked live on Groq).
 MAX_TOKENS = 600
+MAX_REPLY_CHARS = 4000  # a longer reply is cut before it is parsed
+CHECKS_PER_HOUR = 5  # API checks per user per hour; past it, suggestions are saved "not checked"
 FLAGS = ["private_residence", "isolated_or_unsafe", "alcohol_or_nightlife", "far_from_campus",
          "unclear_details", "advertising_or_spam", "contact_details", "manipulation_attempt"]
+# A flag that means the place is unsuitable: the decision can then be no better than "review".
+SERIOUS_FLAGS = {"private_residence", "isolated_or_unsafe", "alcohol_or_nightlife", "advertising_or_spam"}
 STRICTNESS = {VenueCheck.APPROVE: 0, VenueCheck.REVIEW: 1, VenueCheck.REJECT: 2}
 
 SYSTEM_PROMPT = (
@@ -72,7 +77,6 @@ class APIUnavailable(Exception):
 
 # --- 1. Preprocessing ------------------------------------------------------------------
 
-_INVISIBLE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏‪-‮⁠﻿]")
 CONTACT = [
     (re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+"), "[email]"),
     (re.compile(r"(https?://|www\.)\S+|\b[\w-]+\.(com|net|org|biz|info|io|co)\b\S*", re.IGNORECASE), "[link]"),
@@ -89,14 +93,16 @@ INSTRUCTIONS = re.compile(
 def prepare(venue):
     """The venue's fields as the API will see them, and our own flags.
 
-    Contact details are replaced by placeholders: they never leave the server,
-    and a meeting place that needs a phone number or a link is not a public
-    venue anyway. A suggestion that tries to instruct the model is flagged.
+    The text is made plain first (ai_search.plain_text: look-alike letters
+    folded, invisible characters removed), so a hidden character cannot split
+    a word to get past the instruction check. Contact details are replaced by
+    placeholders: they never leave the server, and a meeting place that needs
+    a phone number or a link is not a public venue anyway.
     """
     flags = []
     fields = {}
     for name in ("name", "street_address", "arrival_note"):
-        text = " ".join(_INVISIBLE.sub(" ", str(getattr(venue, name) or "")).split())[:200]
+        text = plain_text(getattr(venue, name), 200)
         for pattern, placeholder in CONTACT:
             text, found = pattern.subn(placeholder, text)
             if found and "contact_details" not in flags:
@@ -121,7 +127,7 @@ def provider():
 
 
 def ask(fields):
-    """One chat-completions call; the reply's text, or APIUnavailable."""
+    """One chat-completions call; the reply's text (at most MAX_REPLY_CHARS), or APIUnavailable."""
     name, url, model, key = provider()
     if not key:
         raise APIUnavailable("No API key is set (see AI_API_PROVIDER in .env.example).")
@@ -142,49 +148,58 @@ def ask(fields):
     if response.status_code >= 400:
         raise APIUnavailable(f"{name} answered with an error (HTTP {response.status_code}).")
     try:
-        return response.json()["choices"][0]["message"]["content"] or ""
+        content = response.json()["choices"][0]["message"]["content"]
     except (ValueError, KeyError, IndexError, TypeError) as error:
         raise APIUnavailable(f"{name} sent a reply we could not read.") from error
+    return content[:MAX_REPLY_CHARS] if isinstance(content, str) else ""
 
 
 # --- 3. Reading the answer -------------------------------------------------------------------
 
 def read_answer(reply):
     """The reply -> (decision, flags, reason), or APIUnavailable if it is not the
-    agreed shape. Unknown flags are dropped; the reason is one plain line."""
-    obj = first_json_object(reply or "")
+    agreed shape. Unknown flags are dropped; the reason is one plain sentence."""
+    obj = first_json_object((reply or "")[:MAX_REPLY_CHARS])
     decision = str((obj or {}).get("decision", "")).strip().lower()
     if decision not in STRICTNESS:
         raise APIUnavailable("The API's reply did not contain a decision we know.")
     raw_flags = obj.get("flags") if isinstance(obj.get("flags"), list) else []
     flags = [f for f in dict.fromkeys(str(x).strip().lower() for x in raw_flags) if f in FLAGS]
-    reason = " ".join(_INVISIBLE.sub(" ", str(obj.get("reason") or "")).split())[:249]
+    reason = plain_text(obj.get("reason"), 249)
     if reason and reason[-1] not in ".!?":
         reason += "."  # it is shown before "Staff make the final decision."
     return decision, flags, reason
 
 
 def stricter(decision, flags):
-    """Our own findings can only make a decision stricter, never looser."""
+    """The decision, made stricter by any flag that contradicts it: ours (a
+    manipulation attempt, contact details) or the model's own (a private
+    residence flagged with "approve"). Never looser."""
     if "manipulation_attempt" in flags:
         return VenueCheck.REJECT
-    if "contact_details" in flags and STRICTNESS[decision] < STRICTNESS[VenueCheck.REVIEW]:
+    if ("contact_details" in flags or SERIOUS_FLAGS & set(flags)) and STRICTNESS[decision] < STRICTNESS[VenueCheck.REVIEW]:
         return VenueCheck.REVIEW
     return decision
 
 
 # --- 4. The pipeline ----------------------------------------------------------------------------
 
-def check_suggestion(venue):
+def check_suggestion(venue, user=None):
     """Fill in a new suggestion's automatic check (the venue is not saved here).
     Never raises, and never touches is_approved."""
     fields, local_flags = prepare(venue)
     venue.ai_checked_at = timezone.now()
     try:
-        name, _, model, _ = provider()
+        if user is not None and rate_limited(user, "venue-check", CHECKS_PER_HOUR, 60 * 60):
+            raise APIUnavailable(f"more than {CHECKS_PER_HOUR} suggestions from this account in the last hour.")
+        name, _url, model = provider()[:3]  # never hold the key here: an error page could show it
         decision, flags, reason = read_answer(ask(fields))
-    except APIUnavailable as error:
-        logger.warning("Venue suggestion %r not checked: %s", venue.name, error)
+    except Exception as error:  # an unusable answer must never lose the suggestion
+        if isinstance(error, APIUnavailable):
+            logger.warning("Venue suggestion %r not checked: %s", venue.name, error)
+        else:
+            logger.exception("Venue check failed")
+            error = "the check failed unexpectedly."
         venue.ai_decision, venue.ai_checked_by = "", ""
         venue.ai_flags = ",".join(local_flags)
         venue.ai_reason = f"Not checked automatically: {error}"

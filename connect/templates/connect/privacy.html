@@ -10,7 +10,7 @@ a Google sign-in stores is set by SOCIALACCOUNT_PROVIDERS in settings/base.py
 {% block heading %}Privacy{% endblock %}
 
 {% block subtitle %}
-  <p class="sub">What QuadConnect keeps about you, and why. Last updated 9 October 2026.</p>
+  <p class="sub">What QuadConnect keeps about you, and why. Last updated 19 October 2026.</p>
 {% endblock %}
 
 {% block content %}
@@ -44,6 +44,11 @@ a Google sign-in stores is set by SOCIALACCOUNT_PROVIDERS in settings/base.py
        <a href="{% url 'connect:api-summary' %}">/api/summary/</a>, publishes only how
        many students picked each interest, never names, NetIDs or email addresses. The
        site is hosted on PythonAnywhere, and Google handles "Continue with Google".</p>
+    <p>When you suggest a venue, its name, address and meeting note are sent to an AI
+       service (Groq) that checks whether it looks like a public place; email addresses,
+       phone numbers and links are removed first, and who sent the suggestion is never
+       included. "Ask in plain English" searches are read by a language model on our own
+       server and are not sent anywhere.</p>
   </div>
 
   <div class="card">
