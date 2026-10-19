@@ -1,6 +1,6 @@
 # Extra packages for ai_prototype.ipynb, on top of the Django app's own list:
 #   pip install -r ../requirements.txt -r requirements.txt
-# bitsandbytes loads the 7B-15B models in 4-bit (NF4) so they fit in 16 GB of RAM;
+# bitsandbytes loads the 2B-15B models in 4-bit (NF4) so they fit in 16 GB of RAM;
 # accelerate places them on the CPU or GPU; pandas and pyarrow read the leaderboard;
 # psutil reports memory; ipykernel and nbconvert run the notebook.
 accelerate==1.15.0

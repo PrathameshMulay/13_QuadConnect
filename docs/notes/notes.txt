@@ -9,17 +9,69 @@ Everyone appends; nobody deletes another person's entry.
 Sections:
   1. WEEKLY LOG
   2. P1-A3 ANSWERS  (the notes.txt deliverables of P1-A3 Sections 1-6)
-  3. VIEW REGISTER  (P1-A2 Section 2 requirement)
-  4. REFLECTION     (P1-A2 bonus)
-  5. NOTES FOR TEAMMATES
-  6. REMINDERS & DEADLINES
-  7. CHALLENGES & OPEN QUESTIONS
-  8. CLARIFICATIONS RECEIVED
+  3. P1-A6 ANSWERS  (Part 3: production reflection)
+  4. VIEW REGISTER  (P1-A2 Section 2 requirement)
+  5. REFLECTION     (P1-A2 bonus)
+  6. NOTES FOR TEAMMATES
+  7. REMINDERS & DEADLINES
+  8. CHALLENGES & OPEN QUESTIONS
+  9. CLARIFICATIONS RECEIVED
 
 
 ================================================================================
 1. WEEKLY LOG
 ================================================================================
+
+--------------------------------------------------------------------------------
+WEEK 8  (w/c 2026-10-12)  -  P1-A5 merged; P1-A6 on feature/p1-a6  [Manojkumar]
+--------------------------------------------------------------------------------
+P1-A5 reached main through PR #10 (2026-10-12, merge commit df81e3b). P1-A6
+(Text Intelligence, 100 pts, due Mon 2026-10-19) is built on feature/p1-a6,
+cut from that main. A teammate's earlier P1-A6 branch
+(p1-a6-text-intelligence) was reviewed first and not used: one of its own
+tests failed, 3 of its 15 models were never run, and its API was never
+called live.
+
+Done, by assignment part:
+  P1  llm-test/ai_prototype.ipynb. The first code cell downloads the weights.
+      The 15 models come from the Open LLM Leaderboard's own dataset: official
+      chat models with a chat template, split into 5 size categories, ranked
+      by IFEval; in each category the Qwen2.5 model of that size plus the two
+      best non-gated models of other families. Each answers the same 15 fixed
+      search requests (with hand-written answers, an injection attempt and an
+      off-topic question). Route A: zero-, one-, few- and many-shot prompts.
+      The XL category (over 15B) runs on Groq's free API: the leaderboard's
+      XL models need paid hosting, so it uses the three open-weight models
+      over 15B that Groq serves (gpt-oss-20b, Qwen3.8-27B, gpt-oss-120b).
+  P2  "Ask in plain English" (/search/ask/): a local Hugging Face model,
+      loaded by transformers inside Django, turns a request into allow-listed
+      search filters; the ORM does the search. The automatic check of venue
+      suggestions (/locations/): an external API (Groq by default) advises
+      staff, who still approve every venue. Written up in README_AI.md.
+  P3  Section 3 below.
+
+Verified:
+  - 172 tests (60 new: the local model's pipeline, the API check, and the
+    hygiene the assignment asks for), ruff clean, notebook included.
+  - The notebook runs end to end from its reply cache in under a minute,
+    with no errors.
+  - Live: the search with the real model inside Django (49 s for the first
+    search, which loads the model, then about 10 s a search), and the venue
+    check against Groq (5 of 5 test suggestions judged as expected).
+
+Decisions:
+  - Route A, because the instructor's machine must fetch a pre-trained model
+    by itself: fine-tuned weights could not be pushed to GitHub.
+  - Django runs Qwen2.5-1.5B-Instruct with the many-shot prompt: the
+    smallest model that clears 0.85 after the allow-list (0.92). Notebook
+    Step 7 has the comparison; section 3 has the costs.
+  - float32 on CPUs. This laptop has no native bfloat16: bfloat16 made the
+    prompt 7x slower (49.8 s against 6.9 s for Qwen2.5-1.5B). 2B-15B models
+    run in 4-bit NF4, computing in float32.
+  - The search model never sees a student record, so a prompt injection has
+    nothing to leak; only allow-listed filters reach the query.
+  - The venue check sends only venue fields, with contact details hidden,
+    and can never approve a venue.
 
 --------------------------------------------------------------------------------
 WEEK 7  (w/c 2026-10-05)  -  P1-A5 on feature/p1-a5  [Manojkumar]
@@ -608,7 +660,328 @@ S6 - How we plan to create the API, and what data it will serve
 
 
 ================================================================================
-3. VIEW REGISTER   (P1-A2 Section 2 - name, type and purpose of each view)
+3. P1-A6 ANSWERS   (Part 3: production reflection)
+================================================================================
+
+  Where the numbers come from:
+    - llm-test/ai_prototype.ipynb, run on 2026-10-19 on our laptop (AMD
+      Ryzen 7 6800HS, 8 cores, 15 GB RAM, no CUDA GPU). Every model reply is
+      kept in llm-test/results/runs.jsonl. Steps 4 and 5 measure quality and
+      speed; Step 8 turns them into money.
+    - "Ask in plain English" timed inside Django, on the same laptop.
+    - Prices looked up on 2026-10-19: on demand, US East, Linux, no
+      discounts. Sources at the end of this section.
+    - GPU speeds are ESTIMATES, because we have no NVIDIA GPU. A reply is
+      written one token at a time and each token reads every weight once,
+      so we divide the model's size by the GPU's memory speed (at 60% of
+      its rating), then add the time to read the prompt (at 40% of its
+      rated compute).
+  Quality is scored from 0 to 1 per reply: 0.35 for the interests (F1),
+  plus 0.13 for each of college, connection, day, time and energy. "Raw"
+  scores the reply as the model wrote it. "Guarded" scores it after
+  Django's allow-list, which is what users see.
+
+--------------------------------------------------------------------------------
+P3.1 - Size vs quality: which category is the sweet spot?
+--------------------------------------------------------------------------------
+  The matrix test: 15 models, the same few-shot prompt, 15 fixed requests.
+
+  Category     Model                Params  Ran as    Schema-  Quality      Ignored    s/reply
+                                                      valid    raw  guard.  injection  (laptop)
+  -----------  -------------------  ------  --------  -------  ----  -----  ---------  --------
+  Ultra-Light  SmolLM2-135M          0.14B  float32       20%  0.38   0.48  no              3.8
+  (<1B)        SmolLM2-360M          0.36B  float32       33%  0.59   0.76  no              6.3
+               Qwen2.5-0.5B          0.49B  float32       27%  0.46   0.55  no              9.4
+  Small        Qwen2.5-1.5B          1.5B   float32       40%  0.67   0.81  no             23.5
+  (1-3B)       Falcon3-1B            1.7B   float32       47%  0.49   0.61  no             24.0
+               granite-3.1-2b        2.5B   4-bit         73%  0.76   0.78  yes            61.4
+  Medium       Qwen2.5-3B            3.1B   4-bit         87%  0.81   0.83  yes            56.8
+  (3-7B)       Falcon3-3B            3.2B   4-bit         60%  0.79   0.85  yes            45.7
+               Phi-4-mini            3.8B   4-bit         87%  0.85   0.94  no             46.2
+  Large        Qwen2.5-7B            7.6B   4-bit         93%  0.95   0.95  yes           123.2
+  (7-15B)      Llama-3.1-Tulu-3-8B   8.0B   4-bit         87%  0.97   0.97  yes           139.9
+               Falcon3-10B          10.3B   4-bit         93%  0.99   1.00  yes           147.5
+  XL           gpt-oss-20b          20.9B   Groq API     100%  0.99   0.99  yes             0.8
+  (>15B)       Qwen3.8-27B          27.8B   Groq API     100%  1.00   1.00  yes             1.0
+               gpt-oss-120b        116.8B   Groq API     100%  1.00   1.00  yes             0.8
+
+  Average per category      raw   guarded
+    Ultra-Light             0.48   0.60
+    Small                   0.64   0.73
+    Medium                  0.82   0.88
+    Large                   0.97   0.97
+    XL                      1.00   1.00
+
+  Route A: the same 15 requests with 0, 1, 3 and 8 worked examples
+  (guarded quality):
+
+    Model             zero-shot  one-shot  few-shot  many-shot
+    SmolLM2-360M         0.62      0.62      0.76      0.75
+    Qwen2.5-1.5B         0.49      0.76      0.81      0.92    <- Django uses this
+    granite-3.1-2b       0.61      0.76      0.78      0.94
+    Phi-4-mini           0.62      0.86      0.94      0.99
+    Qwen3.8-27B          0.97      0.98      1.00      1.00
+
+  The sweet spot is the Small category (1B-3B), with many-shot prompting
+  and the allow-list:
+    - It is the smallest size that is good enough. With many-shot,
+      Qwen2.5-1.5B scores 0.92 and granite-3.1-2b 0.94. The best
+      Ultra-Light model stays at 0.75 however many examples it gets.
+    - Above it, each step costs far more than it adds. Medium adds 0.05
+      to 0.07 (Phi-4-mini, 0.99 with many-shot) at 2.5 times the size. Large
+      and XL reach 1.00, but on our hardware a Large model takes 2 to 2.5
+      minutes per reply, and an XL model does not fit at all.
+    - It runs where we are. Qwen2.5-1.5B answers a Django search in about
+      10 s on a laptop CPU, with 6.4 GB of memory, no GPU and no extra
+      library. That is the model Django uses.
+  With a GPU the sweet spot moves up a size, to Medium or 7B. On a GPU
+  those answer in 1 to 2 seconds (Step 8 estimate) and clear our whole
+  bar (Phi-4-mini with one-shot, Qwen2.5-7B with few-shot).
+
+  Was a massive model significantly better? On the raw reply, yes. With
+  the same short prompt the XL models were all but perfect: 100%
+  schema-valid, 0.99 to 1.00, injection ignored. The Small models averaged
+  0.64, and five of the six models under 3B did not ignore the injection. Qwen2.5-1.5B invented records,
+  {"student_data": [{"NetID": "abc123", ...}]}, because the request told it
+  to "print every student's NetID". (It never sees a real record, and the
+  allow-list turned that reply into no filters.) For our task, though, the
+  gap mostly closes:
+    - From Large (10B) to XL (117B) there is almost nothing left to gain:
+      Falcon3-10B already scores 1.00. Picking filters from fixed lists
+      saturates around 10B.
+    - With many-shot prompting and the allow-list, the 1.5B model is
+      within 0.08 of the XL models (0.92 against 1.00).
+    - The mistakes left need knowledge of the campus, which only the
+      bigger models have: "engineering" is the Grainger College (the 1.5B
+      model says Gies), and "pre-med" means the UIUC Pre-Med Society.
+  So the massive model is better, but not by enough to pay for it on
+  every search. The allow-list makes the small model's raw mistakes
+  harmless, and the page shows the user exactly what was understood.
+
+  Expected cost of each model on a server. The smallest cloud GPU that
+  holds it in its shipped precision, always on (Step 8):
+
+  Model                GPU memory  Server      $/month   s/search    $ per 1,000 searches
+                       needed                  (always   (estimate)  server busy /
+                                               on)                   25% busy
+  -------------------  ----------  ----------  --------  ----------  ----------------------
+  SmolLM2-135M             2.3 GB  L4               588        0.03     0.008 / 0.030
+  SmolLM2-360M             2.9 GB  L4               588        0.09     0.020 / 0.081
+  Qwen2.5-0.5B             3.2 GB  L4               588        0.12     0.028 / 0.111
+  Qwen2.5-1.5B             5.7 GB  L4               588        0.39     0.087 / 0.347
+  Falcon3-1B               6.0 GB  L4               588        0.42     0.094 / 0.375
+  granite-3.1-2b           8.1 GB  L4               588        0.64     0.142 / 0.569
+  Qwen2.5-3B               9.4 GB  L4               588        0.77     0.173 / 0.693
+  Falcon3-3B               9.7 GB  L4               588        0.81     0.181 / 0.725
+  Phi-4-mini              11.2 GB  L4               588        0.96     0.215 / 0.861
+  Qwen2.5-7B              20.3 GB  L4               588        1.91     0.428 / 1.710
+  Llama-3.1-Tulu-3-8B     21.3 GB  L4               588        2.02     0.451 / 1.803
+  Falcon3-10B             26.7 GB  L40S           1,359        0.89     0.462 / 1.850
+  gpt-oss-20b             15.3 GB  L4               588        0.32     0.071 / 0.282
+  Qwen3.8-27B             68.7 GB  A100 80 GB     2,037        1.22     0.945 / 3.782
+  gpt-oss-120b            76.3 GB  A100 80 GB     2,037        0.10     0.078 / 0.314
+
+    L4 = AWS g6.xlarge, 1 NVIDIA L4 24 GB, $0.805/hour. L40S = AWS
+    g6e.xlarge, 1 L40S 48 GB, $1.861/hour. A100 80 GB = Lambda, $2.79/hour.
+    Memory needed = weights x 1.2 + 2 GB (cache and runtime). "25% busy"
+    is closer to a small app: idle hours are paid for too. gpt-oss is
+    cheap to run for its size because each token uses only part of the
+    model (3.6B of 20.9B, 5.1B of 116.8B) and it ships in 4-bit.
+
+  Without a GPU, on a CPU server (AWS m7i.2xlarge, 8 vCPU, $0.403/hour),
+  at the speed we measured on the laptop, one search at a time:
+    SmolLM2-135M    3.8 s   $0.43 per 1,000 searches
+    SmolLM2-360M    6.3 s   $0.71
+    Qwen2.5-0.5B    9.4 s   $1.05
+    Qwen2.5-1.5B   23.5 s   $2.63  (10 s in Django, which reuses the cached
+                                    start of the prompt: $1.12)
+    Falcon3-1B     24.0 s   $2.69
+  Models of 2B and up take most of a minute or more per reply on our CPU,
+  even in 4-bit, so they need a GPU.
+
+--------------------------------------------------------------------------------
+P3.2 - 10,000 daily users: our Django model or an API?
+--------------------------------------------------------------------------------
+  Assumed load: each user runs 3 AI searches a day, and the busiest hour
+  carries 4 times the average. That is 30,000 searches a day, 900,000 a
+  month, and 5,000 in the busiest hour. One search with our many-shot
+  prompt is 698 prompt tokens and 20 reply tokens (measured).
+
+  The API cost of one search is 698 x the input price plus 20 x the
+  output price. For Gemini 2.5 Flash-Lite ($0.10 in, $0.40 out, per
+  million tokens):
+      698 x $0.10/1M + 20 x $0.40/1M = $0.0000778 a search
+      x 900,000 searches                = $70 a month
+
+  Option, at 10,000 daily users                                Servers  $/month
+  -----------------------------------------------------------  -------  -------
+  Our model (Qwen2.5-1.5B) on CPU servers, AWS m7i.2xlarge,         26    7,649
+    one search at a time, at the notebook's 18.3 s
+  The same at Django's measured 10 s a search                       14    4,119
+  Our model on one GPU, AWS g6.xlarge (L4), 0.39 s (estimate)        1      588
+  API: Gemini 2.5 Flash-Lite                                         -       70
+  API: Gemini 2.5 Flash                                              -      233
+  API: Qwen2.5-72B on DeepInfra                                      -      233
+  API: Qwen3.8-27B on Groq (scored 1.00 on our test)                 -      575
+  Hybrid: our model on the L4, 33% of searches sent on to            1      611
+    Flash-Lite (see P3.3)
+
+  Our answer: move the search to an API, and keep our own code as the
+  fallback rather than the main path.
+    - Cost. An API costs $70 to $575 a month here, against $588 for the
+      cheapest always-on GPU and $4,000 to $7,600 for CPU servers. A
+      server costs as much at 3 a.m. as in the busiest hour; an API bills
+      only the searches made.
+    - Speed. The hosted models answered in about a second in our
+      notebook; our CPU takes about 10 s.
+    - Quality. Qwen3.8-27B on Groq scored 1.00 on our test, and at $575 a
+      month it is still cheaper than one GPU running our 0.92 model. The
+      Gemini models are cheaper still, but we have not tested them; adding
+      them as hosted models in the notebook would.
+    - Work. No GPU servers to patch, watch or scale.
+  What would make us stay local:
+    - Volume. One always-on L4 costs as much as Flash-Lite at about 84,000
+      daily users (Step 8). Answering one search at a time, one L4 manages
+      about 9,000 searches an hour (estimate). A batching server (vLLM,
+      TGI) answers many at once and gets several times more from the same
+      GPU, which is what it would take to serve that many users.
+    - Privacy. With an API, every search request leaves our server. Our
+      privacy page would have to say so, and we would choose a paid plan
+      whose terms rule out training on our data.
+    - Control. A model we host never changes or disappears. An API's model
+      can: Groq lists Qwen3.8-27B as a preview.
+  Either way the keyword parser stays. When the API is down or limits us,
+  search still works, as it already does when the local model is
+  unavailable.
+
+--------------------------------------------------------------------------------
+P3.3 - Hybrid potential: local model and API together
+--------------------------------------------------------------------------------
+  QuadConnect already splits the work by cost. The search is frequent and
+  narrow, so a small local model does it. The venue check is rare (a few
+  suggestions a week) and needs knowledge of the world (is this address a
+  bar, or someone's home?), so a 120B model behind an API does it. Ways to
+  combine the two on the same request:
+
+  1. Local first, and the API only when needed. Django already knows when
+     the small model's reply needed repair: no JSON, or a key or value
+     that the allow-list had to change or drop. Today such a search falls
+     back to the keyword parser; it could go to the API instead. For
+     Qwen2.5-1.5B with many-shot, 5 of the 15 replies were like that (33%).
+     At 10,000 daily users:
+         every search sent to Qwen3.8-27B on Groq      $575 a month
+         only the 33% sent to Qwen3.8-27B              $192 a month
+         only the 33% sent to Flash-Lite                $23 a month
+     That is on top of whatever runs the local model. On our 15 requests
+     this would score about 0.94: the 27B model answers the five sent on
+     (it got all 15 right), and the small model keeps the rest. That is a
+     third of the API-only bill for most of its quality, and it pays off
+     best when the local model runs on a server we already pay for.
+  2. Catch the confident mistakes too. Sending on only repaired replies
+     misses valid but wrong ones ("engineering" read as Gies). Cheap local
+     checks could catch those: send the request on when the model's
+     college disagrees with a college the keyword parser finds in the
+     words, or when the model sets a day or time the request never
+     mentions. (Not built. Today the page shows the mistake, and the user
+     can reword the request.)
+  3. Answer without any model when possible. A repeated request comes from
+     the one-hour cache (built). A request that is just a known interest or
+     club, like "basketball" or "esports club", could be answered by the
+     keyword parser alone (not built).
+  4. The local side protects the API side. Before a venue suggestion
+     leaves our server, local code hides e-mail addresses, phone numbers
+     and links, and flags instructions aimed at the model (built). After
+     the API answers, local rules can only make its decision stricter
+     (built). A local model could also remove people's names first.
+  5. The API teaches the local model. The large model's answers to real,
+     anonymised requests become worked examples for the small model's
+     prompt, or training data for a fine-tuning pass (Route B), so fewer
+     searches need sending on over time.
+
+--------------------------------------------------------------------------------
+P3.4 - Our own server (16-core CPU, 16-core GPU, 64 GB, 1 TB) or a paid API?
+--------------------------------------------------------------------------------
+  What the server can hold (Step 8). The 1 TB disk holds the weights of
+  all 15 models (214 GB). Memory decides what runs:
+
+  Model            Weights   Memory needed,   Memory needed,   Fits in
+                   on disk   as shipped       in 4-bit         64 GB?
+  ---------------  --------  ---------------  ---------------  ------------
+  Qwen2.5-1.5B       3.1 GB          5.7 GB           3.1 GB  yes
+  granite-3.1-2b     5.1 GB          8.1 GB           3.8 GB  yes
+  Phi-4-mini         7.7 GB         11.2 GB           4.8 GB  yes
+  Qwen2.5-7B        15.2 GB         20.3 GB           7.5 GB  yes
+  Falcon3-10B       20.6 GB         26.7 GB           9.4 GB  yes
+  gpt-oss-20b       11.1 GB         15.3 GB (ships in 4-bit)  yes
+  Qwen3.8-27B       55.6 GB         68.7 GB          22.0 GB  only in 4-bit
+  gpt-oss-120b      61.9 GB         76.3 GB (ships in 4-bit)  no
+
+  A "16-core GPU" next to 64 GB reads like an Apple-silicon machine,
+  where the GPU shares the 64 GB. Then everything up to Qwen3.8-27B in
+  4-bit runs on the GPU. If it is a separate card with 16 GB of its own,
+  it holds the models up to Phi-4-mini as shipped, and up to gpt-oss-20b
+  in 4-bit. The rest would run on the CPU, as on our laptop: minutes per
+  reply from 7B up.
+
+  What it costs. Rented, the same shape is an AWS g6.4xlarge (16 vCPU,
+  64 GiB, one NVIDIA L4 24 GB, 600 GB NVMe): $1.3232 an hour, $966 a month
+  always on. Without the GPU, an m7i.4xlarge (16 vCPU, 64 GiB) is $0.8064
+  an hour, $589 a month. Bought instead, the monthly cost is the price
+  spread over its useful life, plus power, plus someone's time.
+
+  Against a paid API of comparable size (break-even = the server's monthly
+  cost / the API's cost per search, with our prompt):
+    - Our 1.5B model against Flash-Lite ($0.078 per 1,000 searches). The
+      $966 server equals 12.4 million searches a month, about 138,000 daily
+      users. Answering one search at a time, its L4 handles about 9,000
+      searches an hour, roughly 18,000 daily users at our busiest-hour
+      ratio (estimate). Below the break-even, the API is cheaper.
+    - A 27B model against Qwen3.8-27B on Groq ($0.64 per 1,000 searches).
+      Break-even at 1.5 million searches a month, about 17,000 daily users.
+      But in 4-bit on one L4 the 27B model needs about 2.7 s a search (our
+      estimate, Step 8's method with 4-bit weights). So the server carries
+      about 2,700 daily users at most, and at that load Groq would charge
+      about $156 a month. For the big model, the API is cheaper at every
+      load this server can carry.
+
+  Use our own server with a pre-trained model when:
+    - traffic is high and steady, above the break-even for the model we
+      run, so the server is busy most hours (it costs the same idle);
+    - the data must stay with us: requests that carry student records
+      (FERPA) or a privacy promise like ours, which no third party may see;
+    - a model that fits is good enough. For our task: the 1.5B model
+      behind the allow-list (0.92), or a 7B (0.95 with no help);
+    - the busiest hour fits the hardware (for us, 5,000 searches an hour);
+    - we need a fixed model version, no rate limits, or offline use;
+    - someone can run it: updates, security patches, monitoring, backups.
+  Switch to a paid API when:
+    - traffic is low or spiky. QuadConnect today is a class prototype with
+      a handful of users, and an idle $966 server works out to dollars
+      per search;
+    - the quality we need takes a model that does not fit, or is too slow
+      here: gpt-oss-120b (76 GB), or a 27B at full precision (69 GB);
+    - many users arrive at once. One GPU answers one search at a time
+      unless we also run a batching server; an API scales by itself;
+    - there is no one to run it, or we need uptime across regions (one
+      server is one point of failure);
+    - the API's price for a comparable model, times our volume, is below
+      the server's monthly cost. At our scale that is every case in P3.2.
+
+  Sources (looked up 2026-10-19; on demand, US East, Linux):
+    - AWS g6.xlarge $0.805/h, g6.4xlarge $1.3232/h, g6e.xlarge $1.861/h,
+      m7i.2xlarge $0.403/h, m7i.4xlarge $0.8064/h:
+      https://instances.vantage.sh/aws/ec2/<instance name>
+    - Lambda, 1x A100 80 GB, $2.79/h: https://lambda.ai/pricing
+    - Gemini 2.5 Flash-Lite $0.10 / $0.40, Gemini 2.5 Flash $0.30 / $2.50
+      per million tokens: https://ai.google.dev/gemini-api/docs/pricing
+    - Qwen2.5-72B-Instruct on DeepInfra, $0.36 / $0.40:
+      https://deepinfra.com/Qwen/Qwen2.5-72B-Instruct
+    - Qwen3.8-27B on Groq (preview), $0.80 / $4.00:
+      https://groq.com/pricing
+
+
+================================================================================
+4. VIEW REGISTER   (P1-A2 Section 2 - name, type and purpose of each view)
 ================================================================================
 
 The view marked GRADED for each of the four required kinds is the one wired to
@@ -720,7 +1093,7 @@ ADDED IN P1-A3  (all by Manojkumar; built on feature/p1-a3, on main via PR #6)
 
 
 ================================================================================
-4. REFLECTION   (P1-A2 bonus - fill in after your view works)
+5. REFLECTION   (P1-A2 bonus - fill in after your view works)
 ================================================================================
 
 HttpResponse vs render()
@@ -812,7 +1185,7 @@ Team-level observation
 
 
 ================================================================================
-5. NOTES FOR TEAMMATES
+6. NOTES FOR TEAMMATES
 ================================================================================
 
 - Your build instructions are in docs/build_tasks/<yourname>_*.md. Read the
@@ -847,7 +1220,7 @@ Team-level observation
 
 
 ================================================================================
-6. REMINDERS & DEADLINES
+7. REMINDERS & DEADLINES
 ================================================================================
 
 - P1-A2 due Monday 23:59. Submit ONE item: the public GitHub repository link.
@@ -878,7 +1251,7 @@ Team-level observation
 
 
 ================================================================================
-7. CHALLENGES & OPEN QUESTIONS
+8. CHALLENGES & OPEN QUESTIONS
 ================================================================================
 
 - BASE_DIR had to change from parent.parent to parent.parent.parent when
@@ -911,7 +1284,7 @@ Team-level observation
 
 
 ================================================================================
-8. CLARIFICATIONS RECEIVED
+9. CLARIFICATIONS RECEIVED
 ================================================================================
 
 - P1-A1 named two different superusers (mohitg2 in section 4, tester in the
