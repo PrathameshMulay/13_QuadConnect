@@ -33,6 +33,7 @@ from django.utils.timezone import localtime
 from django.views import View
 from django.views.generic import DetailView, ListView
 
+from . import ai_venues
 from .forms import CampusLocationSuggestionForm, NetIDLookupForm, StudentSearchForm
 from .models import (
     CampusLocation,
@@ -351,7 +352,11 @@ class CampusLocationListView(View):
         return self._render(request, CampusLocationSuggestionForm())
 
     def post(self, request):
-        """Save a venue suggestion, unapproved, then redirect.
+        """Save a venue suggestion, unapproved, with its automatic check
+        (P1-A6, connect/ai_venues.py), then redirect.
+
+        The check is advice for staff: it never approves a venue. Without
+        an API key it is skipped, and the suggestion is saved as before.
 
         Success redirects (Post/Redirect/Get), so reloading the page cannot
         submit the same suggestion twice. A failure re-renders the list with
@@ -365,11 +370,17 @@ class CampusLocationListView(View):
         if form.is_valid():
             venue = form.save(commit=False)
             venue.is_approved = False  # the model default is True
+            ai_venues.check_suggestion(venue)
             venue.save()
             messages.success(request, (
                 f'Thanks. "{venue.name}" was sent for review and will be '
                 f"listed here once staff approve it."
             ))
+            if venue.ai_decision:
+                messages.info(request, (
+                    f"Automatic check: {venue.get_ai_decision_display()}. "
+                    f"{venue.ai_reason} Staff make the final decision."
+                ))
             return redirect(reverse("connect:location-list") + "#main")
         return self._render(request, form)
 

@@ -82,6 +82,15 @@ class InterestCategory(models.TextChoices):
     ACTIVITY = "ACTIVITY", "Meeting activity"
 
 
+class VenueCheck(models.TextChoices):
+    """What the automatic check of a venue suggestion advised (P1-A6).
+    Advice for staff only: it never approves a venue."""
+
+    APPROVE = "approve", "Looks suitable"
+    REVIEW = "review", "Needs a closer look"
+    REJECT = "reject", "Likely unsuitable"
+
+
 class MatchStatus(models.TextChoices):
     """Lifecycle of a weekly match, driven by Screens 6-9."""
 
@@ -369,6 +378,31 @@ class CampusLocation(models.Model):
         help_text="Unapprove to stop scheduling here without losing history.",
     )
 
+    # --- P1-A6: the automatic check of a suggestion (connect/ai_venues.py) ---
+    ai_decision = models.CharField(
+        max_length=10,
+        choices=VenueCheck.choices,
+        blank=True,
+        help_text="What the automatic check advised; blank if it did not run. "
+                  "Advice only: staff approve venues.",
+    )
+    ai_flags = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Comma-separated reasons the check found, e.g. private_residence.",
+    )
+    ai_reason = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="The check's one-line explanation, or why it did not run.",
+    )
+    ai_checked_by = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="API provider and model, e.g. groq / llama-3.3-70b-versatile.",
+    )
+    ai_checked_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["name"]
         verbose_name = "Campus location"
@@ -379,6 +413,11 @@ class CampusLocation(models.Model):
     def get_absolute_url(self):
         """This venue's page, e.g. /locations/2/. Staff-only if unapproved."""
         return reverse("connect:location-detail", kwargs={"pk": self.pk})
+
+    @property
+    def ai_flag_labels(self):
+        """The check's flags as words, e.g. ["private residence"]."""
+        return [flag.replace("_", " ") for flag in self.ai_flags.split(",") if flag]
 
 
 class Match(models.Model):

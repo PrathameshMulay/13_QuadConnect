@@ -134,12 +134,14 @@ class AvailabilitySlotAdmin(admin.ModelAdmin):
 @admin.register(CampusLocation)
 class CampusLocationAdmin(admin.ModelAdmin):
     list_display = ("name", "street_address", "is_indoor", "capacity",
-                    "is_approved", "hosted_matches")
-    list_filter = ("is_indoor", "is_approved")
+                    "is_approved", "ai_decision", "hosted_matches")
+    list_filter = ("is_indoor", "is_approved", "ai_decision")
     search_fields = ("name", "street_address")
     # Venue suggestions from /locations/ arrive unapproved; staff review
-    # them by filtering on is_approved and ticking it here.
+    # them by filtering on is_approved and ticking it here. The automatic
+    # check (P1-A6) is advice, so it is shown but cannot be edited.
     list_editable = ("is_approved",)
+    readonly_fields = ("ai_decision", "ai_flags", "ai_reason", "ai_checked_by", "ai_checked_at")
 
     @admin.display(description="Matches hosted")
     def hosted_matches(self, obj):
