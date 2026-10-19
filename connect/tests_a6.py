@@ -311,7 +311,7 @@ class VenueCheckTests(SeededTestCase):
         venue, fake = self.check(return_value=api_response(GOOD_CHECK))
         self.assertEqual((venue.ai_decision, venue.ai_flags), (VenueCheck.APPROVE, ""))
         self.assertEqual(venue.ai_reason, "A busy public cafe next to campus.")
-        self.assertEqual(venue.ai_checked_by, "groq / llama-3.3-70b-versatile")
+        self.assertEqual(venue.ai_checked_by, "groq / openai/gpt-oss-120b")
         self.assertIsNotNone(venue.ai_checked_at)
         self.assertTrue(venue.is_approved)  # untouched: the view saves suggestions unapproved
 
@@ -322,7 +322,8 @@ class VenueCheckTests(SeededTestCase):
         sent = json.loads(body["messages"][1]["content"].split("\n", 1)[1])
         self.assertEqual(set(sent), {"name", "street_address", "arrival_note", "indoors", "seats"})
         self.assertEqual(sent["arrival_note"], "Text me at [phone] or [email], see [link]")
-        self.assertEqual((body["model"], body["temperature"]), ("llama-3.3-70b-versatile", 0))
+        self.assertEqual((body["model"], body["temperature"], body["max_tokens"]), ("openai/gpt-oss-120b", 0, 600))
+        self.assertEqual(body["reasoning_effort"], "low")  # gpt-oss is a reasoning model
         self.assertEqual(fake.call_args.kwargs["headers"], {"Authorization": "Bearer test-key"})
         self.assertEqual(fake.call_args.kwargs["timeout"], ai_venues.TIMEOUT_SECONDS)
 
@@ -341,6 +342,7 @@ class VenueCheckTests(SeededTestCase):
         self.assertEqual((venue.ai_decision, venue.ai_flags), (VenueCheck.REJECT, "private_residence"))
         self.assertTrue(venue.ai_reason.startswith("A private apartment. x"))
         self.assertEqual(len(venue.ai_reason), 250)
+        self.assertTrue(venue.ai_reason.endswith("."))  # a sentence, before "Staff make the final decision."
 
     def test_every_failure_leaves_the_suggestion_not_checked(self):
         failures = {

@@ -399,7 +399,7 @@ class CampusLocation(models.Model):
     ai_checked_by = models.CharField(
         max_length=120,
         blank=True,
-        help_text="API provider and model, e.g. groq / llama-3.3-70b-versatile.",
+        help_text="API provider and model, e.g. groq / openai/gpt-oss-120b.",
     )
     ai_checked_at = models.DateTimeField(null=True, blank=True)
 

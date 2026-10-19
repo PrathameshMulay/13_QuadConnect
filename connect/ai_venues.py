@@ -35,12 +35,15 @@ logger = logging.getLogger(__name__)
 
 # name -> (chat-completions URL, default model)
 PROVIDERS = {
-    "groq": ("https://api.groq.com/openai/v1/chat/completions", "llama-3.3-70b-versatile"),
-    "openrouter": ("https://openrouter.ai/api/v1/chat/completions", "meta-llama/llama-3.3-70b-instruct"),
+    "groq": ("https://api.groq.com/openai/v1/chat/completions", "openai/gpt-oss-120b"),
+    "openrouter": ("https://openrouter.ai/api/v1/chat/completions", "openai/gpt-oss-120b"),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-2.5-flash"),
     "huggingface": ("https://router.huggingface.co/v1/chat/completions", "Qwen/Qwen2.5-72B-Instruct"),
 }
 TIMEOUT_SECONDS = 15
+# Room for a reasoning model to think before it answers: with 150, gpt-oss
+# spent the whole budget thinking and returned nothing (checked live on Groq).
+MAX_TOKENS = 600
 FLAGS = ["private_residence", "isolated_or_unsafe", "alcohol_or_nightlife", "far_from_campus",
          "unclear_details", "advertising_or_spam", "contact_details", "manipulation_attempt"]
 STRICTNESS = {VenueCheck.APPROVE: 0, VenueCheck.REVIEW: 1, VenueCheck.REJECT: 2}
@@ -122,9 +125,11 @@ def ask(fields):
     name, url, model, key = provider()
     if not key:
         raise APIUnavailable("No API key is set (see AI_API_PROVIDER in .env.example).")
-    body = {"model": model, "temperature": 0, "max_tokens": 150,
+    body = {"model": model, "temperature": 0, "max_tokens": MAX_TOKENS,
             "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                          {"role": "user", "content": "Venue suggestion (data):\n" + json.dumps(fields)}]}
+    if "gpt-oss" in model:  # a reasoning model: a short think is enough, and faster and cheaper
+        body["reasoning_effort"] = "low"
     try:
         response = requests.post(url, json=body, timeout=TIMEOUT_SECONDS,
                                  headers={"Authorization": f"Bearer {key}"})
@@ -153,7 +158,9 @@ def read_answer(reply):
         raise APIUnavailable("The API's reply did not contain a decision we know.")
     raw_flags = obj.get("flags") if isinstance(obj.get("flags"), list) else []
     flags = [f for f in dict.fromkeys(str(x).strip().lower() for x in raw_flags) if f in FLAGS]
-    reason = " ".join(_INVISIBLE.sub(" ", str(obj.get("reason") or "")).split())[:250]
+    reason = " ".join(_INVISIBLE.sub(" ", str(obj.get("reason") or "")).split())[:249]
+    if reason and reason[-1] not in ".!?":
+        reason += "."  # it is shown before "Staff make the final decision."
     return decision, flags, reason
 
 

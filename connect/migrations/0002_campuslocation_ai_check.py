@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='campuslocation',
             name='ai_checked_by',
-            field=models.CharField(blank=True, help_text='API provider and model, e.g. groq / llama-3.3-70b-versatile.', max_length=120),
+            field=models.CharField(blank=True, help_text='API provider and model, e.g. groq / openai/gpt-oss-120b.', max_length=120),
         ),
         migrations.AddField(
             model_name='campuslocation',
