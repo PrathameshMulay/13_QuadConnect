@@ -49,21 +49,47 @@ jobs:
 
       - name: The web app fits a 512 MB host
         # The course's host allows 512 MB for the virtualenv and the project
-        # together, so the installed packages must leave room for the rest.
+        # together, so the web app's packages must leave room for the rest.
         # Since P1-A6, requirements.txt also lists the local model's stack
-        # (torch, transformers and what only they need). The live site does
-        # not install it: its "Ask in plain English" search falls back to
-        # keywords without a model. So that stack is not counted here.
+        # (torch, transformers and what only they need), which the live site
+        # does not install: its "Ask in plain English" search falls back to
+        # keywords without a model. So this measures what the web app needs:
+        # the packages it imports, and everything they depend on.
         run: |
-          site="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
-          total="$(du -sm "$site" | cut -f1)"
-          ai="$(du -smc "$site"/torch* "$site"/functorch "$site"/sympy* "$site"/mpmath* "$site"/networkx* "$site"/transformers* "$site"/tokenizers* "$site"/safetensors* "$site"/hf_xet* 2>/dev/null | tail -1 | cut -f1)"
-          size=$((total - ai))
-          echo "Installed packages: ${total} MB, of which the local model's stack: ${ai} MB; the web app: ${size} MB"
-          if [ "$size" -gt 400 ]; then
-            echo "::error::The web app's packages use ${size} MB; keep them under 400 MB."
-            exit 1
-          fi
+          python - <<'EOF'
+          import importlib.metadata as md
+          import re
+
+          # What the app imports, plus allauth's Google sign-in extra.
+          ROOTS = ["django", "django-allauth", "whitenoise", "matplotlib", "requests",
+                   "vl-convert-python", "python-dotenv", "oauthlib", "pyjwt", "cryptography"]
+
+
+          def norm(name):
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+
+          dists = {norm(d.metadata["Name"]): d for d in md.distributions()}
+          needed, todo = set(), list(ROOTS)
+          while todo:
+              name = norm(todo.pop())
+              if name in needed or name not in dists:
+                  continue
+              needed.add(name)
+              for req in dists[name].requires or []:
+                  if "extra ==" not in req:
+                      todo.append(re.split(r"[ ;<>=!~\[(]", req, maxsplit=1)[0])
+
+
+          def megabytes(names):
+              return sum(f.size or 0 for n in names for f in (dists[n].files or [])) / 1e6
+
+
+          web, total = megabytes(needed), megabytes(dists)
+          print(f"Installed packages: {total:.0f} MB. The web app needs {len(needed)} of them: {web:.0f} MB.")
+          if web > 400:
+              raise SystemExit(f"::error::The web app's packages use {web:.0f} MB; keep them under 400 MB.")
+          EOF
 
       - name: Generate a throwaway secret key
         # Nothing in CI outlives the run, so a fresh random key per run is
