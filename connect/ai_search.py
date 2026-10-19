@@ -1,7 +1,7 @@
 """
 "Ask in plain English": student search by a local language model (P1-A6 Part 2).
 
-    GET /search/ask/?q=quiet engineering students free saturday afternoon
+    GET /search/ask/?q=shy art lovers free on sunday morning
 
 A Hugging Face model, run inside Django by `transformers` and `torch`, turns
 the request into search filters; the database then does the searching, as the
@@ -550,7 +550,7 @@ class AskForm(forms.Form):
         label="Who are you looking for?",
         min_length=3,
         max_length=MAX_REQUEST_CHARS,
-        help_text="For example: quiet engineering students free Saturday afternoon who like reading.",
+        help_text="For example: shy art lovers free on Sunday morning.",
         error_messages={"required": "Describe the students you are looking for, in a few words.",
                         "min_length": "Write at least 3 characters, for example: gamers.",
                         "max_length": f"Keep it to {MAX_REQUEST_CHARS} characters or fewer."},
@@ -569,11 +569,11 @@ class AskForm(forms.Form):
         return text
 
 
-SAMPLES = [
-    "quiet engineering students who love reading",
-    "gamers free saturday afternoon",
+SAMPLES = [  # each one read correctly by the default model (README_AI.md, "Measured")
+    "quiet students who love reading",
     "a squad into music and food",
     "someone for one-on-one coffee on Sunday around noon",
+    "business school students who like to travel",
 ]
 
 

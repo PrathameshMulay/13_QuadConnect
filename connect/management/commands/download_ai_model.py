@@ -16,7 +16,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from connect import ai_search
 
-SAMPLE = "quiet engineering students free saturday afternoon who like reading"
+SAMPLE = "shy art lovers free on Sunday morning"
 
 
 class Command(BaseCommand):
