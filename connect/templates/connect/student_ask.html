@@ -35,7 +35,8 @@ stored, and the model never sees a student record.
     </form>
     <p class="form-note">
       Try:
-      {% for sample in samples %}<a href="?q={{ sample|urlencode }}">{{ sample }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}
+      {% url 'connect:student-ask' as ask_url %}
+      {% for sample in samples %}<a href="{{ ask_url }}?q={{ sample|urlencode }}">{{ sample }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}
     </p>
     <p class="form-note">
       {% if model_on %}
