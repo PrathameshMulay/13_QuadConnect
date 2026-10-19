@@ -7,7 +7,7 @@ navigation and its design.
 
 | Feature | Where in the app | Engine | What it does |
 |---|---|---|---|
-| **Ask in plain English** | `/search/ask/`, linked from **Search** | A **local** Hugging Face model, run by `transformers` inside Django | Turns a request such as *"shy art lovers free on Sunday morning"* into search filters; the database does the searching |
+| **Ask in plain English** | `/search/ask/`, linked from **Search** | A **local** Hugging Face model, run by `transformers` inside Django | Turns a request such as *"someone for one-on-one coffee on Sunday around noon"* into search filters; the database does the searching |
 | **Automatic check of venue suggestions** | `/locations/` → **Suggest a venue**; staff read the result in the waiting list and in Django Admin | An **external API** (Groq by default; any OpenAI-compatible chat API) | Says whether a suggested meeting place looks public, busy or staffed and suits a daytime student meetup; advice for staff, who still approve every venue |
 
 | Assignment part | Where it is |

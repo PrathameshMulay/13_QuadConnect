@@ -96,8 +96,8 @@ production reflection is section 3 of
 
 - **Ask in plain English** (`/search/ask/`, linked from Search). A local
   Hugging Face model, run by `transformers` inside Django, turns a request such
-  as "shy art lovers free on Sunday morning" into search filters, and the ORM
-  does the searching. The model never sees a student record, and only
+  as "someone for one-on-one coffee on Sunday around noon" into search filters,
+  and the ORM does the searching. The model never sees a student record, and only
   allow-listed filters reach the query. The weights download by themselves on
   the first search; `python manage.py download_ai_model` fetches them ahead of
   time.
