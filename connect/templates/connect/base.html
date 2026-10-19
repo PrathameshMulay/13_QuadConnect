@@ -55,7 +55,7 @@ is a POST form, so a link or a prefetch can never sign anyone out.
       <a href="{% url 'connect:student-list' %}"
          {% if u == 'student-list' %}class="active" aria-current="page"{% elif u == 'student-detail' %}class="active" aria-current="true"{% endif %}>Students</a>
       <a href="{% url 'connect:student-search' %}"
-         {% if u == 'student-search' %}class="active" aria-current="page"{% endif %}>Search</a>
+         {% if u == 'student-search' %}class="active" aria-current="page"{% elif u == 'student-ask' %}class="active" aria-current="true"{% endif %}>Search</a>
       <a href="{% url 'connect:match-list' %}"
          {% if u == 'match-list' %}class="active" aria-current="page"{% elif u == 'match-detail' or u == 'match-icebreakers' %}class="active" aria-current="true"{% endif %}>Matches</a>
       <a href="{% url 'connect:location-list' %}"

@@ -15,7 +15,9 @@ P1-A3 added detail pages (/matches/<pk>/, /locations/<pk>/), search
 (/search/), charts (/insights/...) and the JSON API (/api/...). P1-A4 added
 chart data (/api/summary/...), Vega-Lite specs and images (/vega-lite/...),
 icebreakers (/api/icebreakers/, /matches/<pk>/icebreakers/), and reports
-with exports (/reports/, /export/...). Each group sits under a comment
+with exports (/reports/, /export/...). P1-A6 added /search/ask/ (a local
+language model) and an API check of /locations/ suggestions (no new
+route). Each group sits under a comment
 naming its assignment section; every /api/ route is in one block. Paths and
 names must not change without updating base.html and the models'
 get_absolute_url(), which reverse them.
@@ -23,7 +25,7 @@ get_absolute_url(), which reverse them.
 
 from django.urls import path
 
-from . import api, charts, icebreakers, reports, vega_charts, views
+from . import ai_search, api, charts, icebreakers, reports, vega_charts, views
 
 app_name = "connect"
 
@@ -40,6 +42,8 @@ urlpatterns = [
 
     # --- P1-A3 Section 2 - ORM search (GET and POST forms) ------------------
     path("search/", views.StudentSearchView.as_view(), name="student-search"),
+    # P1-A6 - the same search, described in plain English to a local model.
+    path("search/ask/", ai_search.student_ask, name="student-ask"),
 
     # --- Manojkumar Mohankumar - render() FBV ----------------------------
     path("matches/", views.match_list, name="match-list"),
