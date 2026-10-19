@@ -146,6 +146,9 @@ class ParsingTests(SimpleTestCase):
                 self.assertEqual(ai_search.keyword_filters(text, INTERESTS, COLLEGES), expected)
 
 
+# The model is "on" unless a test switches it off, wherever the tests run (CI sets
+# AI_LOCAL_ENABLED=0); generate_reply is replaced, so nothing is ever loaded.
+@override_settings(AI_LOCAL_ENABLED=True)
 class SeededTestCase(TestCase):
 
     @classmethod
