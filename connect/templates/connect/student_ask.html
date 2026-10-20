@@ -1,0 +1,128 @@
+{% extends "connect/base.html" %}
+{% comment %}
+"Ask in plain English" (P1-A6 Part 2). A local language model turns the request
+into the filters shown under "Understood as" (connect/ai_search.py); the
+database does the searching. The request and the model's answer are not saved
+in the database (the filters are cached in memory for an hour), and the model
+never sees a student record.
+{% endcomment %}
+
+{% block title %}{% if form.errors %}Error: {% endif %}Ask in plain English - QuadConnect{% endblock %}
+
+{% block page_header %}
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="{% url 'connect:student-search' %}">Search</a> /
+    <span aria-current="page">Ask in plain English</span>
+  </nav>
+  <h1 class="page">Ask in plain English</h1>
+  <p class="sub">
+    Describe the students you are looking for. A language model running on this
+    server turns your words into search filters, and you can see exactly which
+    ones it chose.
+  </p>
+{% endblock %}
+
+{% block content %}
+
+  <section class="card" aria-labelledby="ask-title">
+    <h2 class="card-title" id="ask-title">Your request</h2>
+    {# novalidate: the server's messages say how to fix the request. #}
+    <form class="form" method="get" action="{% url 'connect:student-ask' %}" role="search"
+          aria-label="Ask in plain English" novalidate>
+      <div class="field">{{ form.q.as_field_group }}</div>
+      <div class="actions">
+        <button type="submit">Search</button>
+      </div>
+    </form>
+    <p class="form-note">
+      Try:
+      {% url 'connect:student-ask' as ask_url %}
+      {% for sample in samples %}<a href="{{ ask_url }}?q={{ sample|urlencode }}">{{ sample }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}
+    </p>
+    <p class="form-note">
+      {% if model_on %}
+        Model: <code>{{ model_name }}</code>, running on this server. The first search
+        after the server starts takes longer while the model loads (and downloads,
+        the very first time).
+      {% else %}
+        The language model is switched off on this server (AI_LOCAL_ENABLED=0), so
+        searches use the keyword parser.
+      {% endif %}
+    </p>
+  </section>
+
+  {% if answer %}
+    <h2 class="section" id="results">Understood as</h2>
+    {% if understood %}
+      <ul class="chips" aria-label="Search filters">
+        {% for word in understood %}<li class="chip chip-match">{{ word }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p>
+        No search filter was found in that request. Name an interest or a club, a
+        college, a day or time on the weekend, or how social the students are.
+      </p>
+    {% endif %}
+
+    {% if answer.flagged %}
+      <p class="message message-info" role="status">
+        Your request contained instructions aimed at the AI. They were ignored: it can
+        only choose from the filters above.
+      </p>
+    {% endif %}
+    {% if answer.source == "keywords" %}
+      <p class="message message-info" role="status">
+        {{ answer.note }} These filters come from a simple keyword parser instead, so
+        they may miss some of what you asked for.
+      </p>
+    {% endif %}
+    <p class="note">
+      Read by {% if answer.source == "model" %}<code>{{ answer.model }}</code>{% else %}the keyword parser{% endif %}
+      in {{ answer.seconds }} s{% if answer.cached %}, an earlier answer to the same request{% endif %}.
+      Students with more of the interests come first.
+    </p>
+
+    {% if understood %}
+      <h2 class="section">{{ students|length }} student{{ students|length|pluralize }} found</h2>
+      <ul class="list" role="list">
+      {% for student in students %}
+        <li class="card linked">
+          <div class="row">
+            <div>
+              <div class="title">
+                <a href="{{ student.get_absolute_url }}">{{ student.full_name }}</a>
+              </div>
+              <div class="subtitle">
+                {{ student.college }}{% if student.department %} &middot; {{ student.department }}{% endif %}
+              </div>
+              <div class="meta">
+                <span>{{ student.net_id }}</span>
+                <span>{{ student.get_social_energy_display }}</span>
+                {% if interest_names %}<span>{{ student.shared }} of {{ interest_names|length }} interest{{ interest_names|length|pluralize }}</span>{% endif %}
+              </div>
+              <ul class="chips" aria-label="Interests">
+                {% for interest in student.interests.all %}
+                  {% if interest.name in interest_names %}
+                    <li class="chip chip-match">{{ interest.name }}<span class="visually-hidden"> (asked for)</span></li>
+                  {% else %}
+                    <li class="chip">{{ interest.name }}</li>
+                  {% endif %}
+                {% empty %}
+                  <li class="chip">No interests yet</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <span class="badge">{{ student.get_preferred_connection_display }}</span>
+          </div>
+        </li>
+      {% empty %}
+        <li class="empty">
+          <div class="big">No student matches all of these filters</div>
+          <p>Try asking for less, for example without the day or the college.</p>
+        </li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+
+{% endblock %}

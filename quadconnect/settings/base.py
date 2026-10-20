@@ -208,3 +208,22 @@ if env("GOOGLE_CLIENT_ID"):
         "secret": env("GOOGLE_CLIENT_SECRET", required=True),
         "key": "",
     }]
+
+
+# --- AI features (P1-A6; see README_AI.md) ----------------------------------
+# A local Hugging Face model reads "Ask in plain English" searches
+# (connect/ai_search.py). transformers downloads its weights on first use,
+# into the Hugging Face cache, never into this repository. AI_LOCAL_ENABLED=0
+# switches it off; the search then uses its keyword parser.
+AI_LOCAL_MODEL = env("AI_LOCAL_MODEL", default="Qwen/Qwen2.5-1.5B-Instruct")
+AI_LOCAL_ENABLED = env("AI_LOCAL_ENABLED", default="1") == "1"
+AI_LOCAL_MAX_SECONDS = float(env("AI_LOCAL_MAX_SECONDS", default="60"))
+
+# An external API checks venue suggestions (connect/ai_venues.py): any
+# OpenAI-compatible chat API. The key comes from .env only; without one, a
+# suggestion is saved "not checked" and nothing is sent anywhere.
+AI_API_PROVIDER = env("AI_API_PROVIDER", default="groq")
+AI_API_MODEL = env("AI_API_MODEL", default="")  # empty: the provider's default in ai_venues.py
+_AI_KEY_VARIABLE = {"groq": "GROQ_API_KEY", "openrouter": "OPENROUTER_API_KEY",
+                    "gemini": "GEMINI_API_KEY", "huggingface": "HF_TOKEN"}
+AI_API_KEY = env("AI_API_KEY") or env(_AI_KEY_VARIABLE.get(AI_API_PROVIDER.lower(), "AI_API_KEY"), default="")

@@ -82,6 +82,12 @@ is POST with {% csrf_token %} (it creates a row).
               <div>
                 <div class="title"><a href="{{ venue.get_absolute_url }}">{{ venue.name }}</a></div>
                 <div class="subtitle">{{ venue.street_address }}</div>
+                {# P1-A6: the automatic check's advice (connect/ai_venues.py). #}
+                <div class="meta">
+                  <span>Automatic check: {{ venue.get_ai_decision_display|default:"not run" }}</span>
+                  {% for flag in venue.ai_flag_labels %}<span>{{ flag }}</span> {% endfor %}
+                </div>
+                {% if venue.ai_reason %}<p class="form-note">{{ venue.ai_reason }}</p>{% endif %}
               </div>
               <span class="badge badge-warn">Not approved</span>
             </div>

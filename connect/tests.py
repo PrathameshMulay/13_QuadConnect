@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
 from django.contrib.staticfiles import finders
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .charts import selections_by_category_data, students_by_college_data
@@ -323,6 +323,9 @@ class ChartTests(QuadConnectData):
 # --- Section 5: forms on a class-based view -------------------------------------
 
 
+# No API key: a suggestion is saved "not checked" (P1-A6), so these tests never
+# call a real AI API even when a developer's .env has a key.
+@override_settings(AI_API_KEY="")
 class LocationFormTests(QuadConnectData):
     url = reverse("connect:location-list")
 

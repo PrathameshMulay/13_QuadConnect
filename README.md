@@ -50,8 +50,15 @@ python manage.py runserver
 ```
 
 Open <http://127.0.0.1:8000/>, and log in as `tester` (see [Admin](#admin))
-or sign up. Run the test suite with `python manage.py test connect` (112
+or sign up. Run the test suite with `python manage.py test connect` (173
 tests).
+
+Since P1-A6, `requirements.txt` also installs `torch` and `transformers` for the
+local language model (about 1 GB). On Linux, add
+`--extra-index-url https://download.pytorch.org/whl/cpu` to get the CPU build
+instead of the much larger CUDA one. The model's own weights download by
+themselves on the first "Ask in plain English" search; see
+[`README_AI.md`](README_AI.md).
 
 The first command after installing pauses for a while (up to a minute on
 Windows) while Matplotlib builds its font cache. That happens once.
@@ -77,6 +84,37 @@ The seed data also ships two superusers, both with password `uiuc12345`:
 exist.)
 
 ---
+
+## P1-A6 features
+
+Built on `feature/p1-a6`, cut from `main` after P1-A5. The AI features are
+written up in [`README_AI.md`](README_AI.md) (Part 2). The model lab is
+[`llm-test/ai_prototype.ipynb`](llm-test/ai_prototype.ipynb) (Part 1), and the
+production reflection is section 3 of
+[`docs/notes/notes.txt`](docs/notes/notes.txt) (Part 3). Tests are in
+[`connect/tests_a6.py`](connect/tests_a6.py).
+
+- **Ask in plain English** (`/search/ask/`, linked from Search). A local
+  Hugging Face model, run by `transformers` inside Django, turns a request such
+  as "someone for one-on-one coffee on Sunday around noon" into search filters,
+  and the ORM does the searching. The model never sees a student record, and only
+  allow-listed filters reach the query. The weights download by themselves on
+  the first search; `python manage.py download_ai_model` fetches them ahead of
+  time.
+- **Automatic check of venue suggestions** (`/locations/`, "Suggest a venue").
+  An external API (Groq by default; OpenRouter, Gemini or Hugging Face
+  Inference by setting) says whether a suggestion looks like a public, staffed
+  place for a student meetup. Staff see the advice in the waiting list and in
+  Django Admin, and still approve every venue themselves. Contact details are
+  hidden before anything leaves the server.
+- **The model lab.** 15 models from the Open LLM Leaderboard, 3 in each of 5
+  size categories, tested on 15 fixed requests, plus zero-, one-, few- and
+  many-shot prompting (Route A).
+
+One key goes in `.env`: `GROQ_API_KEY` (free at
+<https://console.groq.com/keys>), for the venue check and for the notebook's
+XL models. Without it, suggestions are saved as "not checked", nothing is
+sent anywhere, and the notebook skips its XL category.
 
 ## P1-A5 features
 
@@ -611,6 +649,13 @@ Two things to check on the host:
 After deploying, `/vega-lite/chart1.vl.json` points `data.url` at the deployed
 API by itself, so the spec can be pasted into the Vega-Lite editor as it is.
 
+**The local model on a small host (P1-A6).** `torch` and `transformers` do not
+fit PythonAnywhere's free plan (512 MB), and the live site does not need them:
+without them, "Ask in plain English" says the model is not available and uses
+its keyword parser, and the venue check needs only `requests`. So on that host,
+do not reinstall `requirements.txt` for P1-A6 (no web package changed);
+`git pull`, `migrate` and `collectstatic` are enough.
+
 **Updating the PythonAnywhere site.** In a Bash console there:
 
 ```bash
@@ -633,13 +678,16 @@ be extended on the Web tab once a month.
 
 ## Continuous integration
 
-Every push to `feature/p1-a5`, the branch P1-A5 is built on, runs one GitHub
+Every push to `feature/p1-a6`, the branch P1-A6 is built on, runs one GitHub
 Actions check, **Deploy / test (push)**, defined in
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Its single job
-runs, in order:
+runs, in order (with `AI_LOCAL_ENABLED=0`, so CI never downloads a model; the
+tests replace it):
 
-1. `pip install -r requirements.txt`, then a check that the installed
-   packages stay under 400 MB, so the site fits a 512 MB host
+1. `pip install -r requirements.txt` with the CPU build of `torch`, then a check
+   that the web app's packages stay under 400 MB, so the site fits a 512 MB
+   host (the local model's stack, which that host does not install, is not
+   counted)
 2. `ruff check .` (rules in [`ruff.toml`](ruff.toml))
 3. `manage.py check`, and `makemigrations --check` (no model change without a migration)
 4. checks on the committed `db.sqlite3`: fully migrated, and seed data only
@@ -649,11 +697,11 @@ runs, in order:
 5. `verify_constraints`, then the test suite (`manage.py test connect`)
 6. `check --deploy` and `collectstatic` with production settings
 7. a smoke test that boots the production build:
-   - signed out, 17 URLs: the public ones open, pages redirect to the login
+   - signed out, 18 URLs: the public ones open, pages redirect to the login
      page, and APIs answer `401`;
    - it then logs in as `tester` through the login form, as a browser
      would;
-   - signed in, it checks the status and Content-Type of 32 URLs, at least
+   - signed in, it checks the status and Content-Type of 34 URLs, at least
      one for every route;
    - it also checks the hashed stylesheet's `immutable` cache header and the
      four hashed scripts the Insights page loads.
@@ -663,8 +711,9 @@ secret is needed.
 
 `main` receives code only by merging the assignment's branch through a pull
 request, after the branch head has passed the check. P1-A3 reached `main` this
-way in PR #6 (2026-09-28), from `feature/p1-a3`, and P1-A4 in PR #9
-(2026-10-05), from `feature/p1-a4`. The
+way in PR #6 (2026-09-28), from `feature/p1-a3`, P1-A4 in PR #9
+(2026-10-05), from `feature/p1-a4`, and P1-A5 in PR #10 (2026-10-12), from
+`feature/p1-a5`. The
 workflow does not run on `main` itself, so `main`'s merge commits show no check
 of their own; to run it there too, add `main` to its `on: push: branches:` line.
 
@@ -684,6 +733,13 @@ Copy `.env.example` → `.env`. `.env` is gitignored and must never be committed
 | `GOOGLE_CLIENT_SECRET` | That client's secret. Required when `GOOGLE_CLIENT_ID` is set. |
 | `DJANGO_DB_PATH` | Optional: the SQLite file to use. Unset, the committed `db.sqlite3`; the live site keeps its own outside the repository. |
 | `MAPS_API_KEY` | Placeholder for the Screen 8 campus map. Dummy value. |
+| `AI_LOCAL_ENABLED` | `1` (default) runs the local model for "Ask in plain English"; `0` uses only its keyword parser. |
+| `AI_LOCAL_MODEL` | Hugging Face id of that model, downloaded on first use. Default `Qwen/Qwen2.5-1.5B-Instruct`. |
+| `AI_LOCAL_MAX_SECONDS` | Longest a model answer may take, in seconds. Default `60`. |
+| `AI_API_PROVIDER` | The venue check's API: `groq` (default), `openrouter`, `gemini` or `huggingface`. |
+| `GROQ_API_KEY` | Key for that provider (or `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `HF_TOKEN`, or `AI_API_KEY` for any). Without one, nothing is sent. |
+| `AI_API_MODEL` | Optional: another model of that provider. |
+| `HF_TOKEN` | Optional Hugging Face token: faster model downloads, and the key for `AI_API_PROVIDER=huggingface`. |
 
 ---
 
@@ -696,6 +752,7 @@ Copy `.env.example` → `.env`. `.env` is gitignored and must never be committed
 | `/students/` | `connect:student-list` | Generic CBV (`ListView`) | A2 |
 | `/students/<pk>/` | `connect:student-detail` | Generic CBV (`DetailView`) | A2 |
 | `/search/` | `connect:student-search` | Base CBV (`View`), GET + POST | A3 |
+| `/search/ask/` | `connect:student-ask` | FBV, `render()`; a local language model reads the request | A6 |
 | `/matches/` | `connect:match-list` | FBV, `render()` | A2 |
 | `/matches/<pk>/` | `connect:match-detail` | Generic CBV (`DetailView`) | A3 |
 | `/matches/<pk>/icebreakers/` | `connect:match-icebreakers` | FBV, `render()`; calls Open Trivia DB | A4 |
@@ -740,7 +797,9 @@ own login, for staff.
 ```
 13_QuadConnect/
 ├── manage.py                     defaults to development settings
-├── requirements.txt              pip freeze: 29 pinned packages
+├── requirements.txt              pip freeze: 61 pinned packages, torch and transformers included
+├── README_AI.md                  P1-A6: the AI features, their data, preprocessing and guardrails
+├── llm-test/                     P1-A6 model lab: ai_prototype.ipynb, its extra requirements, results/
 ├── db.sqlite3                    committed: seed data only (P1-A4 deploys it)
 ├── templates/                    site-wide templates
 │   ├── account/                  login, sign-up and logout pages (allauth)
@@ -757,7 +816,7 @@ own login, for staff.
 ├── docs/
 │   ├── wireframes/v1/            9 screens + flow, exported as PNG
 │   ├── branching_strategy/       diagram.png + branching.md
-│   ├── notes/notes.txt           weekly log, view register, P1-A3 answers
+│   ├── notes/notes.txt           weekly log, view register, P1-A3 and P1-A6 answers
 │   ├── build_tasks/              per-developer build instructions (A2)
 │   ├── screenshots/              A2 evidence; p1-a3/, p1-a4/ and p1-a5/
 │   ├── a5/                       the public API's chart and its three other uses
@@ -780,15 +839,19 @@ own login, for staff.
     ├── specs/                    the two Vega-Lite specs (.vl.json)
     ├── icebreakers.py            Open Trivia DB questions for a match
     ├── reports.py                reports page, CSV and JSON exports
+    ├── ai_search.py              "Ask in plain English": the local model and its guardrails
+    ├── ai_venues.py              the external API that checks venue suggestions
     ├── tests.py                  45 tests, one class per P1-A3 section
     ├── tests_a4.py               42 tests, one class per P1-A4 part
     ├── tests_a5.py               25 tests: access, navigation, accounts, Google
+    ├── tests_a6.py               61 tests: the local model's pipeline, the API check, hygiene
     ├── urls.py                   all routes named
     ├── admin.py                  all 8 models registered, with inlines
     ├── templates/connect/        base.html, shared entity_list.html, pages
     └── management/commands/
         ├── seed_demo_data.py     idempotent sample data
-        └── verify_constraints.py proves constraints and on_delete rules
+        ├── verify_constraints.py proves constraints and on_delete rules
+        └── download_ai_model.py  fetches the local model ahead of the first search
 ```
 
 ---

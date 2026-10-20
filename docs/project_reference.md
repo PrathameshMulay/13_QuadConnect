@@ -25,22 +25,24 @@ what we chose not to build, and where the shortcuts are.
 | | |
 |---|---|
 | **Repo** | `13_QuadConnect` |
-| **Assignment in flight** | **P1-A5.1** — Django logins, Google sign-in, a public API with a Vega-Lite chart and three other uses, and a team video (50 pts) — built on `feature/p1-a5`, due Mon 2026-10-12 |
-| **Last completed** | P1-A4 — APIs, Vega-Lite charts, exports, static files, deployment (40 pts) — merged into `main` (PR #9, 2026-10-05), live at <https://manojkmohan43.pythonanywhere.com/> |
-| **`main` status** | Has P1-A2, P1-A3 and P1-A4 (`70d0ad4`, PR #9). `feature/p1-a5` was cut from it. |
-| **What remains** | The team video, then the Canvas submission (see §12). A5 is deployed and checked on the live site. |
+| **Assignment in flight** | **P1-A6** — Text Intelligence: a Hugging Face model lab (15 models, Route A prompting), a local model in a Django view, a second AI feature through an external API, and a production reflection (100 pts) — built on `feature/p1-a6`, due Mon 2026-10-19 |
+| **Last completed** | P1-A5.1 — logins, Google sign-in, a public API, the team video (50 pts) — merged into `main` (PR #10, 2026-10-12), live at <https://manojkmohan43.pythonanywhere.com/> |
+| **`main` status** | Has P1-A2 to P1-A5 (`df81e3b`, PR #10). `feature/p1-a6` was cut from it. |
+| **What remains** | P1-A6 is done on its branch (§9): a PR into `main`, then the Canvas submission (§12). |
 
 `main` ships P1-A2 (split settings, `.env` handling, `base.html`, the shared
 list template, a home dashboard and the four graded views), P1-A3 (detail
 pages, search, static files with cache busting, Matplotlib charts, a POST form
 on a CBV, a JSON API) and P1-A4 (chart-ready API endpoints, two Vega-Lite
 charts, Open Trivia DB icebreakers, CSV/JSON exports with a reports page, the
-committed seed database). `feature/p1-a5` adds everything in §9's P1-A5 entry:
-accounts with django-allauth, every page private by default, Google sign-in,
-one public API, and its uses in `docs/a5/`. CI: every push to `feature/p1-a5`
-runs one check, **Deploy / test (push)** (`.github/workflows/deploy.yml`),
-with every CI step inside that one job. It runs on no other branch: code
-reaches `main` only through a PR whose head has passed it.
+committed seed database) and P1-A5 (accounts with django-allauth, every page
+private by default, Google sign-in, one public API). `feature/p1-a6` adds
+everything in §9's P1-A6 entry: the model lab in `llm-test/`, "Ask in plain
+English" (a local Hugging Face model) and the automatic check of venue
+suggestions (an external API). CI: every push to `feature/p1-a6` runs one
+check, **Deploy / test (push)** (`.github/workflows/deploy.yml`), with every
+CI step inside that one job. It runs on no other branch: code reaches `main`
+only through a PR whose head has passed it.
 
 ### Status board — UPDATE YOUR ROW WHEN YOU FINISH
 
@@ -52,7 +54,8 @@ reaches `main` only through a PR whose head has passed it.
 | Dhruv Thaker | `feature/feedback-views` | FBV `HttpResponse` | `/feedback/summary/` | ✅ DONE — aggregate feedback summary with rating distribution, enjoyment metrics, and connection preferences |
 | Manojkumar Mohankumar (P1-A3, solo) | `feature/p1-a3` | all six A3 sections | `/search/`, `/matches/<pk>/`, `/locations/<pk>/`, `/insights/`, `/api/` | ✅ DONE — merged to `main` in PR #6 (2026-09-28); see §9 |
 | Manojkumar Mohankumar (P1-A4) | `feature/p1-a4` | all four A4 parts | `/api/summary/`, `/vega-lite/...`, `/api/icebreakers/`, `/reports/`, `/export/...` | ✅ DONE — merged to `main` in PR #9 (2026-10-05); live at <https://manojkmohan43.pythonanywhere.com/>; see §9 |
-| Manojkumar Mohankumar (P1-A5) | `feature/p1-a5` | Parts 1–3 (Part 4 is the team video) | `/accounts/...`, every route behind a login, `/api/summary/` public | DONE except the video — deployed 2026-10-09 and checked on the live site; see §9 |
+| Manojkumar Mohankumar (P1-A5) | `feature/p1-a5` | Parts 1–4 | `/accounts/...`, every route behind a login, `/api/summary/` public | ✅ DONE — merged to `main` in PR #10 (2026-10-12); deployed 2026-10-09; see §9 |
+| Manojkumar Mohankumar (P1-A6) | `feature/p1-a6` | Parts 1–3 | `/search/ask/`, the venue check on `/locations/`, `llm-test/` | ✅ DONE on the branch (2026-10-19), CI green; PR into `main` next; see §9 |
 
 **Whoever completes a branch:** updating this file is
 **Step 7 of that developer's build task** and a box on their Done
@@ -92,7 +95,7 @@ handed forward to the next assignment as-is.
 | **Course** | INFO 490 (`info_490_120268_265091`), Fall 2026, UIUC |
 | **Team** | The Connectors · **Team 13** |
 | **Prototype** | <https://trek-galaxy-20520998.figma.site/> |
-| **Stack** | Django 5.2.17 · Python 3.11 · SQLite · `python-dotenv` · WhiteNoise · Matplotlib (A3) |
+| **Stack** | Django 5.2.17 · Python 3.11 · SQLite · `python-dotenv` · WhiteNoise · Matplotlib (A3) · django-allauth (A5) · `transformers` + `torch` (A6) |
 | **Platform** | Windows 11, PowerShell + Git Bash |
 
 No JavaScript framework, no CSS framework, no build step. Server-rendered
@@ -139,9 +142,13 @@ Every one of these is a decision, not an omission:
 - **No open sign-up.** UIUC SSO only; a closed community is the safety model.
 - **No public profiles.** Identity is withheld until both sides accept.
 - **No unilateral connections.** A lasting connection requires mutual opt-in.
-- **No machine learning.** Matching is a deterministic weighted score over hard
-  constraints plus soft signals. Never describe this project as using ML — the
-  paper, the data model and the TCC must stay consistent.
+- **No machine learning in matching.** Matching is a deterministic weighted
+  score over hard constraints plus soft signals. Never describe the matching
+  as ML — the paper, the data model and the TCC must stay consistent. P1-A6
+  added language models that read text, and nothing else: "Ask in plain
+  English" turns a sentence into allow-listed search filters, and the venue
+  check gives staff advice. Neither decides a match, and neither approves
+  anything.
 
 ### Five design principles
 
@@ -204,7 +211,9 @@ the same models as a foundation.
 ├── .gitignore                     .env on line 1
 ├── .env                           IGNORED — never committed
 ├── .env.example                   committed, placeholders only
-├── requirements.txt               pip freeze, 29 pins (A5): Django, django-allauth, whitenoise, matplotlib, requests, vl-convert-python, ...
+├── requirements.txt               pip freeze, 61 pins (A6): Django, django-allauth, whitenoise, matplotlib, requests, vl-convert-python, torch, transformers, ...
+├── README_AI.md                   (A6) the AI features: data input, preprocessing, guardrails
+├── llm-test/                      (A6) ai_prototype.ipynb (the model lab), requirements.txt (its extras), results/runs.jsonl
 ├── manage.py                      -> quadconnect.settings.development
 ├── db.sqlite3                     COMMITTED since A4 — seed data only
 ├── static/                        (A3) css/quadconnect.css, img/logo.svg, fonts/; (A4) js/charts.js, vendor/vega/
@@ -240,19 +249,23 @@ the same models as a foundation.
     ├── specs/                     (A4) chart1_bar.vl.json, chart2_line.vl.json
     ├── icebreakers.py             (A4) Open Trivia DB questions for a match
     ├── reports.py                 (A4) /reports/ and the CSV/JSON exports
+    ├── ai_search.py               (A6) "Ask in plain English": the local model, its prompt and guardrails, the view
+    ├── ai_venues.py               (A6) the external API that checks venue suggestions
     ├── tests.py                   (A3) 45 tests, one class per A3 section
     ├── tests_a4.py                (A4) 42 tests, one class per A4 part
     ├── tests_a5.py                (A5) 25 tests: access, navigation, accounts, Google
+    ├── tests_a6.py                (A6) 61 tests: no model is loaded and no API called
     ├── urls.py                    every route named, namespace "connect"
     ├── admin.py                   all 8 registered, with inlines
-    ├── migrations/0001_initial.py
+    ├── migrations/                0001_initial.py; 0002 (A6) adds CampusLocation's ai_* fields
     ├── templates/connect/
     │   ├── base.html              site shell; A3 moved its CSS to static/
     │   ├── entity_list.html       SHARED — model-agnostic list
     │   └── home.html, *_detail.html, student_search.html, insights.html, api_docs.html, icebreakers.html, reports.html, ...
     └── management/commands/
         ├── seed_demo_data.py      idempotent
-        └── verify_constraints.py  11 checks, all rolled back
+        ├── verify_constraints.py  11 checks, all rolled back
+        └── download_ai_model.py   (A6) fetches the local model before the first search
 ```
 
 ### Naming rationale
@@ -304,6 +317,10 @@ names, `immutable` caching, gzip. **Production needs
 | `GOOGLE_CLIENT_ID` | Google OAuth client (A5). Required in production; in development, empty hides the Google button. |
 | `GOOGLE_CLIENT_SECRET` | That client's secret. Required when the ID is set. Never in the database. |
 | `DJANGO_DB_PATH` | Optional SQLite path. The live site's database lives outside the repository. |
+| `AI_LOCAL_ENABLED`, `AI_LOCAL_MODEL`, `AI_LOCAL_MAX_SECONDS` | (A6) The local model for "Ask in plain English": on/off, its Hugging Face id, its time limit. |
+| `AI_API_PROVIDER`, `AI_API_MODEL` | (A6) The venue check's API (`groq`, `openrouter`, `gemini`, `huggingface`) and an optional model. |
+| `GROQ_API_KEY` (or `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `AI_API_KEY`) | (A6) That provider's key. Without one, suggestions are saved "not checked" and nothing is sent. |
+| `HF_TOKEN` | (A6) Optional Hugging Face token: faster downloads, and the key for `AI_API_PROVIDER=huggingface`. |
 
 ---
 
@@ -382,6 +399,9 @@ makes "approved locations only" enforceable.
 ```
 name CharField UNIQUE   street_address   arrival_note   is_indoor Boolean
 capacity PositiveSmallInt 2..50          is_approved Boolean
+ai_decision VenueCheck blank  ai_flags  ai_reason  ai_checked_by  ai_checked_at
+            (A6: the automatic check of a suggestion; advice for staff only,
+             set by connect/ai_venues.py, read-only in Admin)
 Meta.ordering ["name"]
 ```
 
@@ -485,6 +505,7 @@ yours.
 | `/locations/` | `connect:location-list` | Base CBV | Prathamesh | `entity_list.html` (shared) |
 | `/feedback/summary/` | `connect:feedback-summary` | FBV `HttpResponse` | Dhruv | `feedback_summary.html` |
 | `/search/` | `connect:student-search` | Base CBV, GET+POST | A3 | `student_search.html` |
+| `/search/ask/` | `connect:student-ask` | FBV `render()`, GET; a local language model reads the request | A6 | `student_ask.html` |
 | `/matches/<pk>/` | `connect:match-detail` | Generic CBV | A3 | `match_detail.html` (default naming) |
 | `/locations/<pk>/` | `connect:location-detail` | Generic CBV | A3 | `campuslocation_detail.html` (default naming) |
 | `/insights/` + two `.png` | `connect:insights`, `connect:chart-*` | FBV, `image/png` | A3 | `insights.html` |
@@ -494,7 +515,8 @@ yours.
 | `/api/icebreakers/?match=<id>`, `/matches/<pk>/icebreakers/` | `connect:api-icebreakers`, `connect:match-icebreakers` | FBV, calls Open Trivia DB | A4 | `icebreakers.html` |
 | `/reports/`, `/export/students.csv`, `/export/students.json` | `connect:reports`, `connect:export-students-*` | FBV, `render()` / attachments | A4 | `reports.html` |
 
-`/locations/` also gained `post()` in A3 (venue suggestions). Everything is
+`/locations/` also gained `post()` in A3 (venue suggestions), and in A6 that
+`post()` runs the automatic check before it saves. Everything is
 namespaced: `{% url 'connect:match-list' %}`. Links to a single record always
 go through `get_absolute_url()` (`StudentProfile`, `Match`, `CampusLocation`).
 
@@ -513,7 +535,10 @@ project-level `templates/account/`.
   Provides `{% block title %}`, `{% block heading %}`, `{% block subtitle %}`,
   `{% block content %}`, `{% block extra_css %}`.
   **Never edited from a feature branch** — that is the one guaranteed four-way
-  conflict, designed out by pre-naming every route.
+  conflict, designed out by pre-naming every route. (In practice A3, A4, A5
+  and A6 each changed `base.html` on their own feature branch and merged it
+  through a pull request; see their entries in §9. Keep such changes small
+  and list them in the entry.)
 - **`entity_list.html`** — shared, model-agnostic. Renders a list of plain
   dicts (`title`, `subtitle`, `meta`, `badge`, `url`) so the template does not
   know what a Match or a CampusLocation is. Two owners render it from
@@ -537,7 +562,8 @@ python manage.py migrate
 python manage.py seed_demo_data      # idempotent
 python manage.py verify_constraints  # 11/11 pass
 python manage.py check
-python manage.py test connect        # 112 tests (45 A3, 42 A4, 25 A5)
+python manage.py test connect        # 173 tests (45 A3, 42 A4, 25 A5, 61 A6)
+python manage.py download_ai_model   # A6: fetch the local model before the first search
 ruff check .                         # rules in ruff.toml; CI runs the same
 
 DJANGO_SETTINGS_MODULE=quadconnect.settings.production \
@@ -596,7 +622,65 @@ visible when the branches came together — conflicts hit, behaviour that broke
 on integration, decisions reversed. That merge entry is the part that is
 easiest to skip and most valuable later.
 
-### BUILDING `feature/p1-a5` - Manojkumar Mohankumar - 2026-10-08
+### DONE `feature/p1-a6` - Manojkumar Mohankumar - 2026-10-19
+**Shipped:** all three P1-A6 parts on one branch cut from `main` at
+`df81e3b`. Route A (prompt engineering), chosen because the instructor's
+machine must download a pre-trained model by itself.
+- Part 1: `llm-test/ai_prototype.ipynb`. Its first code cell downloads the
+  weights. It picks 15 models from the Open LLM Leaderboard's own dataset (3
+  per size category: Qwen2.5 at every size, plus the two best non-gated models
+  of other families by IFEval), tests them on 15 fixed search requests with
+  hand-written answers, compares zero-, one-, few- and many-shot prompts, and
+  scores adherence, correctness, injection safety, speed and memory. The XL
+  category (over 15B) runs on Groq's free API: the leaderboard's XL models
+  need paid hosting (Hugging Face Inference Providers had no free credit), so
+  it uses the three open-weight XL models Groq serves (gpt-oss-20b,
+  Qwen3.8-27B, gpt-oss-120b), which came out after the leaderboard closed.
+- Part 2: "Ask in plain English" (`/search/ask/`, a local model in a Django
+  view) and the automatic check of venue suggestions (an external API, Groq by
+  default), written up in `README_AI.md`. The model is Qwen2.5-1.5B-Instruct
+  with the many-shot prompt (notebook Step 7): the smallest model that clears
+  0.85 after the allow-list (0.92).
+- Part 3: the production reflection, section 3 of `docs/notes/notes.txt`.
+
+**Files added:** `README_AI.md`, `llm-test/` (notebook, requirements,
+results), `connect/ai_search.py`, `connect/ai_venues.py`,
+`connect/tests_a6.py`, `connect/templates/connect/student_ask.html`,
+`connect/management/commands/download_ai_model.py`,
+`connect/migrations/0002_campuslocation_ai_check.py`.
+
+**Files changed:** `requirements.txt` (torch, transformers and their
+dependencies, 61 pins); `settings/base.py` (the AI block); `models.py`
+(`VenueCheck`, five `ai_*` fields on `CampusLocation`); `views.py` (the venue
+form runs the check); `urls.py`; `admin.py`; `base.html` (Search stays
+marked on the ask page); `student_search.html`, `location_list.html`;
+`.gitignore` (weights); `.env.example` (AI keys); `privacy.html` (what the
+venue check sends to Groq); `tests.py` (the venue form tests run without an
+API key); the CI workflow (this branch, CPU torch, the
+size check counts the web app only, `AI_LOCAL_ENABLED=0`); `db.sqlite3`
+(rebuilt with migration 0002); README, notes.txt, this file.
+
+**Decisions:** a teammate's P1-A6 branch (`p1-a6-text-intelligence`) was
+reviewed first and not used: its own test failed (two links it documents were
+never committed), 3 of its 15 models were never run, and its API was never
+called live. This branch was built separately. float32 on CPUs, 4-bit for 2B
+to 15B models (§11 trap 29).
+
+**Verified:** 173 tests (61 in `tests_a6.py`), ruff clean, CI green. The
+notebook runs end to end from its reply cache with no errors. Live on the
+laptop: the search with the real model inside Django (49 s for the first
+search, which loads the model, then about 10 s a search, 6.4 GB of memory)
+and the venue check against Groq (5 of 5 test suggestions judged as
+expected, all saved unapproved).
+
+**Gotchas for the next person:** §11 traps 29–35.
+
+### `main` — P1-A5 merged · 2026-10-12 · PR #10
+**Merged:** `feature/p1-a5` into `main` through PR #10. Merge commit
+`df81e3b`. The PR's head had passed the Deploy / test check, and nothing
+surfaced at integration. The workflow then moved to `feature/p1-a6`.
+
+### DONE `feature/p1-a5` - Manojkumar Mohankumar - 2026-10-08
 **Shipped so far:** Parts 1–3 of P1-A5 on one branch cut from `main` at
 `70d0ad4`.
 - Part 1: django-allauth accounts with the site's own login, sign-up and
@@ -1077,6 +1161,31 @@ empty state renders (forced in a rolled-back transaction).
 28. **`ruff check .` lints notebooks too.** A committed `.ipynb` under
    `docs/` is checked like any `.py` file, so CI fails on a notebook's
    lint error.
+29. **bfloat16 is slow on a CPU without native support.** On our Ryzen 7
+   6800HS, Qwen2.5-1.5B took 49.8 s to read a 503-token prompt in bfloat16
+   and 6.9 s in float32; 4-bit NF4 computing in float32 took 14.7 s. Use
+   float32 on CPUs and bfloat16 on GPUs (both the notebook and
+   `ai_search.py` do).
+30. **The Hugging Face cache on Windows** copies files instead of linking
+   them unless Developer Mode is on (a warning, not an error), and
+   downloads without `HF_TOKEN` are rate-limited (about 12 MB/s here).
+31. **ruff's import sorter wraps imports longer than 88 characters**, even
+   though line length (E501) is not checked: write long imports in the
+   wrapped form, or `ruff check --fix` does it.
+32. **`python -I` ignores `PYTHONIOENCODING`.** Print non-ASCII text from an
+   isolated script with `sys.stdout.reconfigure(encoding="utf-8")`.
+33. **"afternoon" contains "noon".** Keyword patterns need word boundaries
+   (`\bnoon`); a test caught the keyword parser reading "Saturday
+   afternoon" as midday.
+34. **Never let a test reach a real model or API.** The venue form tests
+   (P1-A3) post suggestions, so they run with `AI_API_KEY=""`; the A6 tests
+   patch `generate_reply` and `requests.post`; CI sets
+   `AI_LOCAL_ENABLED=0`, or a stray call would download gigabytes.
+35. **`torch` from PyPI on Linux is the CUDA build** (several GB). CI and
+   any CPU-only Linux host should add
+   `--extra-index-url https://download.pytorch.org/whl/cpu`; the free
+   PythonAnywhere plan cannot hold torch at all, and does not need it (the
+   search falls back to keywords).
 
 ---
 
@@ -1108,7 +1217,7 @@ working charts (`docs/screenshots/p1-a4/`), in the repository. Deployed to
 PythonAnywhere on 2026-10-04: <https://manojkmohan43.pythonanywhere.com/>, user `manojkmohan43`, teacher
 `mohitg27`. Merged into `main` through PR #9 on 2026-10-05.
 
-### P1-A5.1 — Authentication, Google OAuth, public API, project video (50 pts) — deployed, video to come
+### P1-A5.1 — Authentication, Google OAuth, public API, project video (50 pts) — merged, submitted
 Built on `feature/p1-a5` (§9). Due Mon 2026-10-12. No new repository; the
 live site must run the logged-in version. Submission:
 - the public API's production URL,
@@ -1119,6 +1228,21 @@ live site must run the logged-in version. Submission:
 - the team video as a downloadable file, 300 seconds at most. It opens with
   a slide (members and emails, product name and title, course) and the
   required spoken introduction, then demonstrates the live site.
+
+Merged into `main` through PR #10 on 2026-10-12; the video is in the
+workspace `SUBMIT/` folder.
+
+### P1-A5.2 — Individual deployment and external feedback (20 pts, individual)
+Each member deploys the site on their own PythonAnywhere account and collects
+written feedback from five people outside the class. Dhruv's deployment
+(`dthaker6.pythonanywhere.com`) uses the team's Google client; its callback
+was added on 2026-10-13.
+
+### P1-A6 — Text Intelligence (100 pts) — building
+Built on `feature/p1-a6` (§9). Due Mon 2026-10-19. Submission: the GitHub URL
+with the Django code and `llm-test/ai_prototype.ipynb` (Route A, so no
+fine-tuning notebook). Part 2 is `README_AI.md`; Part 3 is section 3 of
+`docs/notes/notes.txt`.
 
 ### Next
 The matching algorithm remains the biggest open design question:

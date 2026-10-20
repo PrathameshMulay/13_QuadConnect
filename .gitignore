@@ -33,6 +33,18 @@ venv/
 env/
 ENV/
 
+# --- Model weights (P1-A6): never commit them -----------------------------
+# transformers downloads weights into the Hugging Face cache, outside this
+# repository; these catch any copy that lands inside it.
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.gguf
+*.onnx
+.ipynb_checkpoints/
+
 # --- Editors / OS ----------------------------------------------------------
 .vscode/
 .idea/

@@ -19,5 +19,7 @@ select = [
 ]
 
 [lint.per-file-ignores]
+# The notebook's first cell silences a tqdm warning before transformers imports tqdm.
+"llm-test/ai_prototype.ipynb" = ["E402"]
 # Test fixtures create users with throwaway passwords.
 "connect/tests.py" = ["S106"]

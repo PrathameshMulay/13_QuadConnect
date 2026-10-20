@@ -15,7 +15,9 @@ Every loop has an {% empty %} branch.
 {% block subtitle %}
   <p class="sub">
     Filter the verified roster by name, interest, college, connection type or
-    venue, or look one student up by NetID.
+    venue, or look one student up by NetID. Or
+    <a href="{% url 'connect:student-ask' %}">ask in plain English</a>, and a
+    language model fills in the filters for you.
   </p>
 {% endblock %}
 
