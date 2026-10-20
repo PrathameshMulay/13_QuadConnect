@@ -50,7 +50,7 @@ python manage.py runserver
 ```
 
 Open <http://127.0.0.1:8000/>, and log in as `tester` (see [Admin](#admin))
-or sign up. Run the test suite with `python manage.py test connect` (172
+or sign up. Run the test suite with `python manage.py test connect` (173
 tests).
 
 Since P1-A6, `requirements.txt` also installs `torch` and `transformers` for the
@@ -844,7 +844,7 @@ own login, for staff.
     ├── tests.py                  45 tests, one class per P1-A3 section
     ├── tests_a4.py               42 tests, one class per P1-A4 part
     ├── tests_a5.py               25 tests: access, navigation, accounts, Google
-    ├── tests_a6.py               60 tests: the local model's pipeline, the API check, hygiene
+    ├── tests_a6.py               61 tests: the local model's pipeline, the API check, hygiene
     ├── urls.py                   all routes named
     ├── admin.py                  all 8 models registered, with inlines
     ├── templates/connect/        base.html, shared entity_list.html, pages

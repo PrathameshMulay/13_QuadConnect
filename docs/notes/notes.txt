@@ -51,7 +51,7 @@ Done, by assignment part:
   P3  Section 3 below.
 
 Verified:
-  - 172 tests (60 new: the local model's pipeline, the API check, and the
+  - 173 tests (61 new: the local model's pipeline, the API check, and the
     hygiene the assignment asks for), ruff clean, notebook included.
   - The notebook runs end to end from its reply cache in under a minute,
     with no errors.

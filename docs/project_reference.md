@@ -254,7 +254,7 @@ the same models as a foundation.
     ├── tests.py                   (A3) 45 tests, one class per A3 section
     ├── tests_a4.py                (A4) 42 tests, one class per A4 part
     ├── tests_a5.py                (A5) 25 tests: access, navigation, accounts, Google
-    ├── tests_a6.py                (A6) 60 tests: no model is loaded and no API called
+    ├── tests_a6.py                (A6) 61 tests: no model is loaded and no API called
     ├── urls.py                    every route named, namespace "connect"
     ├── admin.py                   all 8 registered, with inlines
     ├── migrations/                0001_initial.py; 0002 (A6) adds CampusLocation's ai_* fields
@@ -562,7 +562,7 @@ python manage.py migrate
 python manage.py seed_demo_data      # idempotent
 python manage.py verify_constraints  # 11/11 pass
 python manage.py check
-python manage.py test connect        # 172 tests (45 A3, 42 A4, 25 A5, 60 A6)
+python manage.py test connect        # 173 tests (45 A3, 42 A4, 25 A5, 61 A6)
 python manage.py download_ai_model   # A6: fetch the local model before the first search
 ruff check .                         # rules in ruff.toml; CI runs the same
 
@@ -666,7 +666,7 @@ never committed), 3 of its 15 models were never run, and its API was never
 called live. This branch was built separately. float32 on CPUs, 4-bit for 2B
 to 15B models (§11 trap 29).
 
-**Verified:** 172 tests (60 in `tests_a6.py`), ruff clean, CI green. The
+**Verified:** 173 tests (61 in `tests_a6.py`), ruff clean, CI green. The
 notebook runs end to end from its reply cache with no errors. Live on the
 laptop: the search with the real model inside Django (49 s for the first
 search, which loads the model, then about 10 s a search, 6.4 GB of memory)

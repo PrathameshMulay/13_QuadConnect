@@ -466,6 +466,16 @@ class VenueCheckTests(SeededTestCase):
                 self.assertEqual(venue.ai_decision, "")
                 self.assertTrue(venue.ai_reason.startswith("Not checked automatically:"))
 
+    def test_the_models_reason_is_escaped_for_staff(self):
+        answer = '{"decision": "review", "flags": [], "reason": "<script>alert(1)</script>"}'
+        venue, _ = self.check(return_value=api_response(answer))
+        venue.is_approved = False
+        venue.save()
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("connect:location-list"))
+        self.assertContains(response, "&lt;script&gt;alert(1)&lt;/script&gt;")
+        self.assertNotContains(response, "<script>alert(1)</script>")
+
     def test_the_models_own_safety_flags_count(self):
         answer = '{"decision": "approve", "flags": ["private_residence"], "reason": "Looks fine."}'
         venue, _ = self.check(return_value=api_response(answer))

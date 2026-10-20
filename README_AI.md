@@ -146,7 +146,7 @@ Log in as `tester` / `uiuc12345`. Then open **Search** → *ask in plain English
 *Suggest a venue*.
 
 ```bash
-python manage.py test connect              # 172 tests; tests_a6.py never loads a model or calls an API
+python manage.py test connect              # 173 tests; tests_a6.py never loads a model or calls an API
 ruff check .                               # the project's lint rules, notebook included
 ```
 
@@ -178,7 +178,8 @@ searches on the page are ones it reads correctly.
   understood, so a wrong filter is visible, and the keyword parser covers the case where it fails.
 * The model, the answer cache and the rate limits live in each web-server process. That suits one
   worker (PythonAnywhere's free plan, `runserver`); with several workers, each loads its own copy of the
-  model, so a shared cache (Redis) and a model server would come first. Part 3 of the notes discusses this.
+  model, so a shared cache (Redis) and a model server would come first. Part 3 of the notes covers serving
+  at scale (10,000 daily users).
 * The notebook scores 15 inputs per model, so small differences between two models are noise.
 * The venue check is advice from a model that cannot visit the place: it judges the words in the
   suggestion. That is why it never approves anything itself.
